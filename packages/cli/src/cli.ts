@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { runDraft, type DraftDeps } from './draft.ts'
+import { runRender, type RenderDeps } from './render.ts'
 import { startServe } from './serve.ts'
 
 export const DEFAULT_PORT = 8787
@@ -20,7 +21,8 @@ commands:
   draft   --from DATE --to DATE [-o FILE] [--title TEXT] [--library PATH] [--port P --token T]
           detect a trip's route from photo GPS and write an editable YAML (stdout without -o)
   render  TRIP [--photo FILE] [--size N] [--out DIR] [--day-trips]
-          draw a trip YAML as transparent PNG overlay(s)
+          draw a trip YAML as transparent PNG overlay(s), plus one with day trips when it
+          has any (--day-trips: only that one); --photo matches its shape and writes a preview
   serve   [--port P] [--library PATH]
           run the local web app on 127.0.0.1 (default port ${DEFAULT_PORT})
 
@@ -176,8 +178,8 @@ export function parseCliArgs(argv: string[], env: NodeJS.ProcessEnv = process.en
   }
 }
 
-/** Run the command line and return the exit code. `deps` lets tests stub the draft and listener. */
-export async function main(argv: string[], deps: DraftDeps = {}): Promise<number> {
+/** Run the command line and return the exit code. `deps` lets tests stub the draft, listener and render. */
+export async function main(argv: string[], deps: DraftDeps & { render?: RenderDeps } = {}): Promise<number> {
   let command: Command
   try {
     command = parseCliArgs(argv)
@@ -195,6 +197,8 @@ export async function main(argv: string[], deps: DraftDeps = {}): Promise<number
       return 0
     case 'draft':
       return runDraft(command, deps)
+    case 'render':
+      return runRender(command, { stdout: deps.stdout, stderr: deps.stderr, ...deps.render })
     case 'serve':
       return runServe(command.port, command.library)
     default:
