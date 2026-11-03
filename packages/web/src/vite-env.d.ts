@@ -7,3 +7,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// The tripmap CLI version (packages/cli/package.json), injected by vite.config.ts.
+declare const __TRIPMAP_VERSION__: string
