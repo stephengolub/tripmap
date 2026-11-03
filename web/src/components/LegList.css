@@ -1,0 +1,99 @@
+.leg-list > ol {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.leg-card {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.leg-card-disabled {
+  opacity: 0.6;
+}
+
+.leg-card-head,
+.leg-card-flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.leg-card-date {
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.leg-card-flags {
+  margin: 0.4rem 0;
+  gap: 1rem;
+}
+
+.leg-card select {
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.leg-card-via {
+  margin: 0 0 0.5rem;
+  padding-left: 1.4rem;
+}
+
+.leg-card-via-row {
+  margin-bottom: 0.3rem;
+}
+
+.leg-card-via-row > .stop-combobox {
+  display: inline-block;
+  width: calc(100% - 7rem);
+  vertical-align: top;
+}
+
+.leg-card-via-buttons {
+  display: inline-flex;
+  gap: 0.15rem;
+  margin-left: 0.25rem;
+}
+
+.leg-card .leg-card-small,
+.leg-card .leg-card-icon {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.leg-card .leg-card-icon {
+  min-width: 1.6rem;
+  padding: 0.15rem 0.3rem;
+}
+
+.leg-card .leg-card-danger {
+  border-color: var(--error);
+  background: transparent;
+  color: var(--error);
+}
+
+.leg-card-suggest,
+.leg-card-suggest-error {
+  margin: 0.3rem 0 0;
+  font-size: 0.9rem;
+}
+
+.leg-card-suggest {
+  color: var(--muted);
+}
+
+.leg-card-suggest-error {
+  color: var(--error);
+}
+
+.leg-list-empty {
+  color: var(--muted);
+}
