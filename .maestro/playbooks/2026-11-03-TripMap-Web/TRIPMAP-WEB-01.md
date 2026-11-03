@@ -34,7 +34,7 @@ Rules for every task:
 
 - [x] Replace `sys.exit` calls inside `build_trip` with `raise TripError(message)`, where `class TripError(Exception)` is defined at module level. `cmd_draft` catches `TripError` and calls `sys.exit` with the same message as before. Verification: `uv run pytest` passes, and `uv run tripmap draft --from 2020-01-01 --to 2020-01-02 -o /tmp/none.yaml` exits non-zero with a readable message and no traceback.
 
-- [ ] Add `dump_trip_yaml(trip: dict) -> str` at module level. It produces the same text that `cmd_draft` writes today, including the header comments, the commented-out lines for disabled legs, and the "flights there and home are commented out" note. `cmd_draft` calls `build_trip` then `dump_trip_yaml`. Verification: rerun the four draft commands from the baseline task into `~/.cache/tripmap/after/` and run `cmp` against each baseline file. Any difference is a regression. Fix it before continuing. Note that the Italy photo count can differ from the committed `examples/italy.yaml`, because photos change. Compare against the baseline you captured, not the committed file.
+- [x] Add `dump_trip_yaml(trip: dict) -> str` at module level. It produces the same text that `cmd_draft` writes today, including the header comments, the commented-out lines for disabled legs, and the "flights there and home are commented out" note. `cmd_draft` calls `build_trip` then `dump_trip_yaml`. Verification: rerun the four draft commands from the baseline task into `~/.cache/tripmap/after/` and run `cmp` against each baseline file. Any difference is a regression. Fix it before continuing. Note that the Italy photo count can differ from the committed `examples/italy.yaml`, because photos change. Compare against the baseline you captured, not the committed file.
 
 - [ ] Move the nested `mode()` function, the `by_train` function, and the `Node` class out of `cmd_draft` to module level. Give them explicit parameters: `classify_hop(a, b, geo, stations, airports) -> str`, `by_train(a, b, geo, stations, airports) -> bool`. They must behave identically. Verification: the draft commands in the baseline still produce byte-identical YAML with `cmp`.
 
@@ -78,6 +78,12 @@ Caveat for the `cmp` checks in later tasks: during the Ireland baseline the Over
 - Also converted `load_photos`'s "No Photos database at ..." exit, because `build_trip` calls it and a `SystemExit` escaping into the API's threadpool would be wrong. `cmd_trips` now catches it the same way, so CLI output and exit codes are unchanged (verified: `tripmap --library /nonexistent trips` prints the message, exit 1).
 - The playbook's verification range `2020-01-01 → 2020-01-02` has 8 geotagged photos, so it drafts successfully (exit 0). The error path was verified with `--from 1990-01-01 --to 1990-01-02`: prints `Only 0 geotagged photos between 1990-01-01 and 1990-01-02.`, exit 1, no traceback, no file written. `uv run pytest`: 45 passed.
 - `sys.exit` calls in `build_svg`, `find_chrome` and `cmd_render` are untouched; `render_png` (task 6) may want the same treatment for the API.
+
+### dump_trip_yaml (2026-11-03, task 4)
+
+- Signature: `dump_trip_yaml(trip, *, photo_count=None, start=None, end=None, filename="trip.yaml") -> str`. The keyword-only extras exist only because the first two header lines name the photo count, the date range and the output file, none of which live in `trip`. `cmd_draft` passes them, so its file is unchanged. Called as plain `dump_trip_yaml(trip)` (the API's case), the first line reads `# tripmap trip. Edit freely, then:` and the render hint names `trip.yaml`.
+- Legs missing `enabled` count as enabled (`l.get("enabled", True)`), matching the JSON default in the shared context. A disabled leg is written as `# - {...}`, and any disabled leg adds the "flights there and home are commented out" note, as before.
+- Verified: the three drafts rerun into `~/.cache/tripmap/after/` are `cmp`-identical to the baseline (Ireland, Italy, PNW). (The task says "four"; the baseline's fourth file is the Italy render, which task 6 covers.) `uv run pytest`: 45 passed. A synthetic trip with one disabled leg dumps to YAML that `yaml.safe_load` reads back with one active leg.
 
 ## Manual Follow-Up (not executed by Auto Run)
 

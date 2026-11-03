@@ -717,16 +717,16 @@ def build_trip(library, start: dt.date, end: dt.date, title: str | None = None) 
     return trip, stats
 
 
-def cmd_draft(args):
-    d0, d1 = dt.date.fromisoformat(args.start), dt.date.fromisoformat(args.end)
-    try:
-        trip, stats = build_trip(args.library, d0, d1, args.title)
-    except TripError as e:
-        sys.exit(str(e))
-    out = Path(args.output)
+def dump_trip_yaml(trip: dict, *, photo_count: int | None = None, start: dt.date | None = None,
+                   end: dt.date | None = None, filename: str = "trip.yaml") -> str:
+    """The trip as editable YAML text, with the explanatory header comments. Disabled legs
+    are written commented out. photo_count/start/end only feed the first header line;
+    filename only feeds the "tripmap render" hint."""
     q = lambda s: json.dumps(s, ensure_ascii=False)
-    L = [f"# tripmap draft from {stats['photo_count']} photos, {d0} to {d1}. Edit freely, then:",
-         f"#   tripmap render {out.name} --photo <background photo>",
+    first = (f"# tripmap draft from {photo_count} photos, {start} to {end}." if photo_count is not None
+             else "# tripmap trip.")
+    L = [f"{first} Edit freely, then:",
+         f"#   tripmap render {filename} --photo <background photo>",
          "#",
          "# stops: kind = major (red pin) | minor (gold star) | hidden (route passes, no marker)",
          "#        label = auto | n | s | e | w | ne | nw | se | sw | none",
@@ -750,14 +750,25 @@ def cmd_draft(args):
         L.append(f"  - {{name: {q(s['name'])}, kind: {s['kind']}, at: [{s['at'][0]:.4f}, {s['at'][1]:.4f}], "
                  f"label: {s['label']}}}  # {note}")
     L += ["", "legs:"]
-    if any(not l["enabled"] for l in trip["legs"]):
+    if any(not l.get("enabled", True) for l in trip["legs"]):
         L.insert(L.index("legs:"), "# The flights there and home are commented out (usually just a layover).\n"
                                   "# Uncomment them to draw them; their stops are already listed, hidden.")
     for l in trip["legs"]:
         via = ", ".join(q(v) if isinstance(v, str) else f"[{v[0]:.3f}, {v[1]:.3f}]" for v in l["via"])
-        L.append(f"  {'' if l['enabled'] else '# '}- {{date: {l['date']}, mode: {l['mode']}, "
+        L.append(f"  {'' if l.get('enabled', True) else '# '}- {{date: {l['date']}, mode: {l['mode']}, "
                  f"day_trip: {str(l['day_trip']).lower()}, via: [{via}]}}")
-    out.write_text("\n".join(L) + "\n")
+    return "\n".join(L) + "\n"
+
+
+def cmd_draft(args):
+    d0, d1 = dt.date.fromisoformat(args.start), dt.date.fromisoformat(args.end)
+    try:
+        trip, stats = build_trip(args.library, d0, d1, args.title)
+    except TripError as e:
+        sys.exit(str(e))
+    out = Path(args.output)
+    out.write_text(dump_trip_yaml(trip, photo_count=stats["photo_count"], start=d0, end=d1,
+                                  filename=out.name))
 
     nights = {s["name"]: s.get("nights") for s in trip["stops"]}
     print(f"Wrote {out}")
