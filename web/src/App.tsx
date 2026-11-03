@@ -1,121 +1,44 @@
 import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import { draftTrip } from './api/client'
+import DateForm from './components/DateForm'
+import PhotosGate from './components/PhotosGate'
+import type { Stats, Trip } from './types/trip'
 import './App.css'
 
+// The trip lives here, in memory only. Nothing is saved to the server or to storage.
 function App() {
-  const [count, setCount] = useState(0)
+  const [trip, setTrip] = useState<Trip | null>(null)
+  const [stats, setStats] = useState<Stats | null>(null)
+
+  async function handleDraft(start: string, end: string) {
+    const res = await draftTrip(start, end)
+    setTrip(res.trip)
+    setStats(res.stats)
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <main className="app">
+      <h1>tripmap</h1>
+      <PhotosGate>
+        <DateForm onSubmit={handleDraft} />
+        {trip && stats && <EditorPlaceholder stats={stats} />}
+      </PhotosGate>
+    </main>
+  )
+}
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+// Stands in for the Phase 04 editor.
+function EditorPlaceholder({ stats }: { stats: Stats }) {
+  const stops =
+    stats.overnight_names.length + stats.quick_names.length + stats.hidden_names.length
+  const legs = Object.values(stats.leg_counts).reduce((sum, n) => sum + (n ?? 0), 0)
+  return (
+    <section data-testid="editor-placeholder" className="editor-placeholder">
+      <p>
+        Drafted {stops} {stops === 1 ? 'stop' : 'stops'} and {legs} {legs === 1 ? 'leg' : 'legs'}{' '}
+        from {stats.photo_count} photos.
+      </p>
+    </section>
   )
 }
 
