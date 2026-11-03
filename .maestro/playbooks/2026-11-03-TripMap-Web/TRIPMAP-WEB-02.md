@@ -1,0 +1,68 @@
+# TripMap Web Phase 02: FastAPI backend
+
+Goal: a stateless HTTP API over the phase 01 core. It starts with a Photos access check, drafts a trip from dates, renders a PNG, suggests a leg mode, and exports YAML.
+
+## Shared context (read first; every task starts with a fresh context)
+
+Repo: `/Users/sgolub/code/tripmap`, branch `main`. Python project managed by uv (`pyproject.toml`, `uv.lock`). Run Python with `uv run ...`. Tests: `uv run pytest` (offline, must stay green).
+
+What exists:
+- `src/tripmap/__init__.py`: the whole CLI. `cmd_draft` reads the Photos library (through a temp copy, never the live DB) and detects a trip's route; `build_svg` draws it; `screenshot` rasterizes the SVG with headless Chrome via `find_chrome()`. Trip files are YAML; the format is in `docs/trip-format.md` and the detection rules are in `docs/how-draft-works.md`. Read those two docs before changing detection or the trip format.
+- `examples/` holds real trip data. `italy.yaml`, `ireland.yaml`, `pnw.yaml` are regression references. Stephen approved committing them. Do not add new personal data to the repo.
+
+Architecture decided for the web app (do not change without writing it into this playbook's notes):
+- Layout (fixed; new Python code goes under `src/`, never at the repo root): the core package is `src/tripmap/` (the CLI lives in `src/tripmap/__init__.py`). The API is a second package, `src/tripmap_api/`, using FastAPI. Tests are in `tests/` at the repo root. The frontend is `web/` at the repo root. Scripts are in `scripts/` at the repo root.
+- Frontend stack: Vite + React + TypeScript, Leaflet via react-leaflet, OpenStreetMap raster tiles.
+- **Stateless.** The server keeps no session, no trip, and no per-user state. The browser owns the trip document and sends it in each request body. Disk caches under `~/.cache/tripmap` are allowed because they are caches, not state.
+- The API binds to `127.0.0.1` only and allows CORS from `http://localhost:5173` only. Route coordinates are personal location data: never log coordinates, photo paths, or photo contents. Logs may say counts and status codes.
+- Trip JSON uses the same field names as the trip YAML, plus an `enabled` boolean on each leg (default true). A disabled leg is written as a commented-out line in YAML.
+- Draft takes tens of seconds because it calls Overpass, OSRM and BRouter. Backend endpoints that do blocking work are plain `def` functions so FastAPI runs them in its threadpool.
+- The map uses `https://tile.openstreetmap.org/{z}/{x}/{y}.png` with the attribution `© OpenStreetMap contributors`. Do not prefetch or bulk-download tiles. Set a descriptive User-Agent on any server-side HTTP call.
+- Node: use the absolute path `/Users/sgolub/.asdf/installs/nodejs/22.14.0/bin/node` and the npm beside it (`/Users/sgolub/.asdf/installs/nodejs/22.14.0/bin/npm`) if `npm` is not on PATH.
+
+Rules for every task:
+- Do not modify files outside `/Users/sgolub/code/tripmap`.
+- Do not run `git push`, and do not create GitHub resources. Local commits are allowed when a task says so.
+- A task is done only when its verification command passes. If a verification fails, fix it and re-run. If it still fails after a real attempt, stop that task, leave the checkbox unchecked, and write what failed under a `## Blockers` heading at the end of the phase file.
+- Do not read the live Photos database under `~/Pictures/Photos Library.photoslibrary`. Go through `load_photos` or the temp-copy path only.
+
+## API contract (implement exactly)
+
+All responses are JSON unless noted. Errors use FastAPI's `{"detail": ...}` shape with the right HTTP status.
+
+- `GET /api/photos/status` returns `{"ok": true, "library": "<path>", "geotagged_assets": <int>}` or `{"ok": false, "library": "<path>", "reason": "<code>", "message": "<text>"}`. Reason codes: `not_found` (no library directory or `database/Photos.sqlite`), `permission_denied` (the process cannot read the library; the message must say that macOS Full Disk Access must be granted to the app running the server, and name the path System Settings > Privacy & Security > Full Disk Access), and `unreadable` (the database copy fails to open or query). Returns no coordinates and no photo paths.
+- `POST /api/trips/draft` with body `{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "title": optional string}` returns `{"trip": <trip dict>, "stats": <stats dict>}`. Returns 422 when `end < start` or the span is over 60 days. Returns 404 with the `TripError` message when the range has too few photos.
+- `POST /api/trips/render` with body `{"trip": <trip dict>, "size": int default 1600, "photo_size": null or {"width": int, "height": int}, "with_day_trips": bool default false}` returns `image/png`. Returns 422 when the trip has no stops or no legs.
+- `POST /api/trips/yaml` with body `{"trip": <trip dict>}` returns `text/yaml` from `dump_trip_yaml`.
+- `POST /api/trips/import` with the raw YAML text as the body (`text/plain`) returns `{"trip": <trip dict>}`. It parses with `yaml.safe_load`, fills in `enabled: true` on legs that lack it, and returns 422 when `stops` or `legs` is missing or empty.
+- `POST /api/legs/suggest-mode` with body `{"from": [lat, lon], "to": [lat, lon], "elapsed_hours": optional number}` returns `{"mode": "drive|train|boat|flight", "reason": "<one sentence>"}`. It calls `classify_hop` with `Node` objects built from the two points. When `elapsed_hours` is given it is used as the photo-to-photo gap for the speed rules.
+
+## Tasks
+
+- [ ] Add dependencies in `pyproject.toml`: a `web` optional extra with `fastapi>=0.115` and `uvicorn>=0.30`. The contract takes JSON and raw text bodies only, so do not add `python-multipart`. Add `httpx>=0.27` to the dev group for `TestClient`. Package discovery is already set in `pyproject.toml` as `[tool.setuptools.packages.find]` with `where = ["src"]` and `include = ["tripmap*"]`, which covers `src/tripmap_api` as well. Do not change it. Run `uv lock` and `uv sync --all-extras`. Verification: `uv run python -c "import fastapi, uvicorn, httpx"` succeeds, and `uv build --wheel --out-dir /tmp/tripmap-wheel` followed by `python3 -m zipfile -l /tmp/tripmap-wheel/*.whl` lists both `tripmap/__init__.py` and `tripmap_api/__init__.py`.
+
+- [ ] Create `src/tripmap_api/__init__.py` and `src/tripmap_api/app.py` with `create_app() -> FastAPI`. Register CORS for `http://localhost:5173` only. Mount the routes above in `src/tripmap_api/routes.py`. Put the Pydantic request and response models in `src/tripmap_api/models.py`. Verification: `uv run python -c "from tripmap_api.app import create_app; create_app()"` succeeds.
+
+- [ ] Implement `GET /api/photos/status` in `src/tripmap_api/photos.py`. Find the library the same way the CLI does: `tripmap.LIBRARY`, overridable by the `TRIPMAP_LIBRARY` environment variable (add that override to `src/tripmap/__init__.py`'s `LIBRARY` default, and document it in the docstring). Copy `Photos.sqlite` with `-wal` and `-shm` into a temp directory, as `load_photos` does, and count rows with `ZLATITUDE` and `ZLONGITUDE` set and `ZTRASHEDSTATE = 0`. Delete the temp directory in a `finally`. Map `PermissionError` to `permission_denied`, a missing file to `not_found`, and any `sqlite3.Error` to `unreadable`. Verification: tests in `tests/test_api_photos.py` build a synthetic `database/Photos.sqlite` with `ZASSET` and `ZADDITIONALASSETATTRIBUTES` tables (same column names that `load_photos` uses), then check ok, not_found, and unreadable (write garbage bytes to the file). For permission_denied, use `os.chmod` to 000 on the database file and skip the test if the process runs as root.
+
+- [ ] Implement `POST /api/trips/draft` and `POST /api/trips/yaml` and `POST /api/trips/import` in `src/tripmap_api/routes.py`. Use plain `def` handlers. Catch `TripError` and return 404 for a too-few-photos range. Verification: `tests/test_api_trips.py` monkeypatches `tripmap.build_trip` to return a fixed trip, then checks the draft response shape, the 422 for end before start, the 422 for a span over 60 days, and that import fills `enabled`.
+
+- [ ] Implement `POST /api/trips/render`. It calls `tripmap.render_png` and returns `Response(content=bytes, media_type="image/png")`. Validate `size` between 200 and 6000. Verification: a test monkeypatches `tripmap.render_png` to return `b"\x89PNG\r\n\x1a\nfake"` and checks the content type and body. Add one more test that runs the real `render_png` on `examples/italy.yaml` at `size=400` and checks the first eight bytes are the PNG signature. Mark that test with `@pytest.mark.slow`, register the marker in `pyproject.toml` under `[tool.pytest.ini_options]`, and make sure `uv run pytest -q` still runs it, because it needs Chrome and is otherwise a regression check.
+
+- [ ] Implement `POST /api/legs/suggest-mode` in `src/tripmap_api/routes.py`. Load `Geo()` and `Stations` once through `functools.lru_cache` helpers, since these are read-only and cached. Use `stations=Stations([])` so the suggestion does not query Overpass. Verification: tests cover a 900 km hop returning `flight` and a short coastal pair returning a non-flight mode, with the `reason` field a non-empty string.
+
+- [ ] Prove statelessness. Add `tests/test_api_stateless.py` that posts the same render request twice with different `size` values, then checks each response is independent and matches its own size. Also assert that `create_app().state` has no attributes beyond the defaults. Verification: `uv run pytest tests/test_api_stateless.py -q` passes.
+
+- [ ] Add a `tripmap-api` console script in `pyproject.toml`: `tripmap-api = "tripmap_api.__main__:main"`. `src/tripmap_api/__main__.py` runs `uvicorn.run(create_app(), host="127.0.0.1", port=8000)`. The host must be `127.0.0.1`. Verification: `uv run tripmap-api --help` prints usage, and a test asserts the host argument in `__main__.py` is `127.0.0.1` by reading the source.
+
+- [ ] Add `docs/api.md` that documents each endpoint above with one request and one response example. Verification: `rg -c "^### " docs/api.md` prints at least 6.
+
+- [ ] Run `uv run pytest -q`. It must pass, if Chrome is not installed, run `uv run pytest -q -m "not slow"` and record in the Notes section that the slow test was skipped and why. Commit locally with `Add FastAPI backend for trip draft, render, import and mode suggestion`. Do not push.
+
+## Notes
+
+(The agent fills this in: anything in the contract that had to change, and why.)
+
+## Manual Follow-Up (not executed by Auto Run)
+
+- Start `uv run tripmap-api` and hit `http://127.0.0.1:8000/api/photos/status` in a browser. Confirm the answer matches the Photos library on this Mac.

@@ -17,8 +17,9 @@ tripmap = "tripmap:main"
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-py-modules = ["tripmap"]
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["tripmap*"]
 
 [dependency-groups]
 dev = [

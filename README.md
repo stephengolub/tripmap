@@ -39,7 +39,7 @@ uv tool install --editable ~/code/tripmap
 tripmap --help
 ```
 
-`--editable` means edits to `tripmap.py` take effect immediately, with no reinstall. To
+`--editable` means edits under `src/tripmap/` take effect immediately, with no reinstall. To
 upgrade the dependencies later, run `uv tool upgrade tripmap`.
 
 ## Quick start
@@ -164,7 +164,7 @@ ones are retried.
 
 ## Development
 
-tripmap is a single module, `tripmap.py`, packaged with uv. Dependencies and the dev
+tripmap is a Python package in `src/`, packaged with uv. Dependencies and the dev
 environment are defined in `pyproject.toml`, with the exact resolved versions in `uv.lock`.
 
 ```sh
@@ -175,7 +175,7 @@ uv run tripmap --help
 
 Layout:
 
-- `tripmap.py`: the whole program. `cmd_draft` detects the route, `build_svg` draws it,
+- `src/tripmap/__init__.py`: the whole CLI. `cmd_draft` detects the route, `build_svg` draws it,
   `cmd_render` writes the files.
 - `tests/`: unit tests. Network calls are stubbed and the cache is redirected to a temp
   directory, so the suite is offline and leaves `~/.cache/tripmap` alone.

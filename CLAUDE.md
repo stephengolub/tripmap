@@ -1,6 +1,6 @@
 # tripmap
 
-Single-module Python CLI (`tripmap.py`) that turns a trip in Stephen's macOS Photos library
+Python package (`src/tripmap/`, the CLI, one module: `src/tripmap/__init__.py`) that turns a trip in Stephen's macOS Photos library
 into a transparent PNG route map to lay over an album photo. Usage is in `README.md`; the
 trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how-draft-works.md`.
 

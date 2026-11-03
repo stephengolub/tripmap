@@ -5,7 +5,7 @@ Photos library. It turns them into overnight stops, quick stops, and legs, then 
 trip file. Every decision below is a guess from photo data. Check the YAML before you
 render.
 
-The constants named here are at the top of `tripmap.py`. Changing one changes every draft.
+The constants named here are at the top of `src/tripmap/__init__.py`. Changing one changes every draft.
 
 ## 1. Clusters and quick stops
 
