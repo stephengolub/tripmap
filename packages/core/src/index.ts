@@ -7,7 +7,7 @@ export { dumpTripYaml, parseTripYaml } from './yaml.ts'
 export type { PlaceInfo } from './places.ts'
 export { decodePlaceNames } from './places.ts'
 export type { Services, Stations } from './services.ts'
-export { stationsFrom } from './services.ts'
+export { stationsFrom, trainRoute } from './services.ts'
 export { FakeServices, NO_STATIONS } from './testing.ts'
 export {
   BASE_MERGE_KM, NEAR_BASE_KM, SEA_KM, STATION_KM, STATION_NAME, STOP_MIN_PHOTOS, STOP_MIN_SECONDS,

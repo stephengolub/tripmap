@@ -57,3 +57,28 @@ export function stationsFrom(pts: [number, number, boolean][], km: (a: LatLon, b
     },
   }
 }
+
+// Port of train_route: rail path for a train leg. Named stops snap to their nearest station
+// (within 5 km) because BRouter needs points within about a kilometre of a track; [lat, lon]
+// hints (photos from the train) are routed as they are, and dropped if they will not route.
+// Falls back to the via points themselves, with onRails false. Unlike the Python, the log
+// line carries no coordinates.
+export async function trainRoute(
+  services: Pick<Services, 'rail'>, ll: LatLon[], named: boolean[], stations: Stations, log: (msg: string) => void = () => {},
+): Promise<{ path: LatLon[]; onRails: boolean }> {
+  const snapped = ll.map((p, i) => (named[i] ? stations.nearest(p, 5) ?? p : p))
+  let path = await services.rail(snapped)
+  if (path === null && ll.length > 2) {
+    const keep = snapped.filter((_, i) => named[i])
+    if (!keep.length) keep.push(snapped[0], snapped[snapped.length - 1])
+    const same = (p: LatLon, q: LatLon) => p[0] === q[0] && p[1] === q[1]
+    if (!same(keep[0], snapped[0])) keep.unshift(snapped[0])
+    if (!same(keep[keep.length - 1], snapped[snapped.length - 1])) keep.push(snapped[snapped.length - 1])
+    path = keep.length > 1 ? await services.rail(keep) : null
+  }
+  if (path === null) {
+    log('  no rail line found for a train leg; drawing it as a smooth line')
+    return { path: [...ll], onRails: false }
+  }
+  return { path: [ll[0], ...path, ll[ll.length - 1]], onRails: true }
+}

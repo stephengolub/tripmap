@@ -3,3 +3,9 @@
 
 export type { Photo, PhotosErrorCode } from './photos.ts'
 export { PhotosError, readGeotaggedPhotos } from './photos.ts'
+export type { CachePaths, NodeServices, ServicesOptions } from './services.ts'
+export { DEFAULT_USER_AGENT, cachePaths, createServices, defaultCacheDir } from './services.ts'
+export type { NetOptions, Piece } from './net.ts'
+export { HttpError, Net, OVERPASS } from './net.ts'
+export type { Feature } from './geodata.ts'
+export { Geo, NE_COUNTRIES, NE_LAND, ensureNaturalEarth, loadGeo, naturalEarthUrl, readFeatures } from './geodata.ts'
