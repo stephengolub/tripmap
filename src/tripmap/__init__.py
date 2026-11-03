@@ -1353,6 +1353,37 @@ def screenshot(svg, png, W, H):
         shutil.rmtree(html.parent, ignore_errors=True)
 
 
+def canvas_size(size, photo_size=None):
+    """(W, H) for a render whose long side is `size`, shaped like the photo if one is given."""
+    if not photo_size:
+        return size, size
+    pw, ph = photo_size
+    return (size, round(size * ph / pw)) if pw >= ph else (round(size * pw / ph), size)
+
+
+def _render(trip, W, H, with_day_trips, geo):
+    """Draw `trip` at W x H and rasterize it. Returns (PNG bytes, basemap mode). Legs with
+    `enabled: false` are left out, the same as a commented-out leg in the YAML."""
+    trip = {**trip, "legs": [l for l in trip["legs"] if l.get("enabled", True)]}
+    svg, mode = build_svg(trip, W, H, with_day_trips, geo)
+    fd, tmp = tempfile.mkstemp(prefix="tripmap-", suffix=".png")
+    os.close(fd)
+    try:
+        screenshot(svg, tmp, W, H)
+        return Path(tmp).read_bytes(), mode
+    finally:
+        os.unlink(tmp)
+
+
+def render_png(trip: dict, size: int = 4000, photo_size: tuple[int, int] | None = None,
+               with_day_trips: bool = False, geo=None) -> bytes:
+    """The trip as a transparent PNG, long side `size`, shaped like `photo_size` (w, h) if
+    given. Writes nothing to disk except a temp file it removes. Pass `geo` to reuse a
+    loaded basemap across calls."""
+    W, H = canvas_size(size, photo_size)
+    return _render(trip, W, H, with_day_trips, geo or Geo())[0]
+
+
 def cmd_render(args):
     trip = yaml.safe_load(open(args.trip))
     for k in ("stops", "legs"):
@@ -1366,21 +1397,21 @@ def cmd_render(args):
     out.mkdir(parents=True, exist_ok=True)
     slug = re.sub(r"[^a-z0-9]+", "-", Path(args.trip).stem.lower()).strip("-") or "trip"
 
-    W = H = args.size
+    photo_size = None
     if args.photo:
         dims = subprocess.run(["magick", "identify", "-format", "%w %h", f"{args.photo}[0]"],
                               capture_output=True, text=True, check=True).stdout.split()
-        pw, ph = int(dims[0]), int(dims[1])
-        W, H = (args.size, round(args.size * ph / pw)) if pw >= ph else (round(args.size * pw / ph), args.size)
+        pw, ph = photo_size = int(dims[0]), int(dims[1])
+    W, H = canvas_size(args.size, photo_size)
 
     geo = Geo()
     variants = [(False, f"{slug}.png")]
     if any(l.get("day_trip") for l in trip["legs"]):
         variants.append((True, f"{slug}-with-day-trips.png"))
     for with_dt, name in variants:
-        svg, mode = build_svg(trip, W, H, with_dt, geo)
+        data, mode = _render(trip, W, H, with_dt, geo)
         png = out / name
-        screenshot(svg, png, W, H)
+        png.write_bytes(data)
         print(f"{png}  ({W}x{H}, transparent, basemap: {mode})")
         if args.photo:
             prev = out / name.replace(".png", "-preview.jpg")

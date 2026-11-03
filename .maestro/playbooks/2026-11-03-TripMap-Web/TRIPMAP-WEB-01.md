@@ -38,7 +38,7 @@ Rules for every task:
 
 - [x] Move the nested `mode()` function, the `by_train` function, and the `Node` class out of `cmd_draft` to module level. Give them explicit parameters: `classify_hop(a, b, geo, stations, airports) -> str`, `by_train(a, b, geo, stations, airports) -> bool`. They must behave identically. Verification: the draft commands in the baseline still produce byte-identical YAML with `cmp`.
 
-- [ ] Add `render_png(trip: dict, size: int = 4000, photo_size: tuple[int, int] | None = None, with_day_trips: bool = False) -> bytes`. It calls `build_svg` then `screenshot` into a temporary PNG, reads the bytes, deletes the temp file, and returns the bytes. `cmd_render` uses it, but the CLI still writes files to disk and still produces the same file names and preview behavior. Verification: `uv run tripmap render ~/.cache/tripmap/regression-baseline/italy.yaml --size 800 --out ~/.cache/tripmap/after/` produces a PNG, and `render_png` returns bytes that start with the PNG signature `\x89PNG`.
+- [x] Add `render_png(trip: dict, size: int = 4000, photo_size: tuple[int, int] | None = None, with_day_trips: bool = False) -> bytes`. It calls `build_svg` then `screenshot` into a temporary PNG, reads the bytes, deletes the temp file, and returns the bytes. `cmd_render` uses it, but the CLI still writes files to disk and still produces the same file names and preview behavior. Verification: `uv run tripmap render ~/.cache/tripmap/regression-baseline/italy.yaml --size 800 --out ~/.cache/tripmap/after/` produces a PNG, and `render_png` returns bytes that start with the PNG signature `\x89PNG`.
 
 - [ ] Add `tests/test_core.py`. Monkeypatch `tripmap.load_photos` to return a small synthetic list of `(ts, local_datetime, lat, lon, blob)` tuples for three nights in two towns, with `blob=None`. Stub `OSM.town_centre`, `OSM.stations`, and `OSM.landmarks` to deterministic values, and stub `road_km`, `osrm`, and `rail` to no-op answers, so the test is offline. Assert that `build_trip` returns the expected number of overnight stops and that `dump_trip_yaml` output loads with `yaml.safe_load` back to a dict with the same stops and legs. Add a test that `build_trip` raises `TripError` when there are fewer than two photos. Verification: `uv run pytest tests/test_core.py -q` passes.
 
@@ -91,6 +91,14 @@ Caveat for the `cmp` checks in later tasks: during the Ireland baseline the Over
 - The nested `is_airport` closure became `is_airport(n, airports)` at module level, since `by_train` needs it. `by_train` takes `geo` only to match the requested signature; it does not use it.
 - Both still reach `rail` and `drivable` through module globals, so tests can stub `tripmap.rail` / `tripmap.drivable` with monkeypatch.
 - Verified: `uv run pytest` 45 passed; Ireland, Italy and PNW drafts rerun into `~/.cache/tripmap/after/` are `cmp`-identical to the baseline.
+
+### render_png (2026-11-03, task 6)
+
+- Added three module-level functions above `cmd_render`: `canvas_size(size, photo_size)` (the W/H math the CLI used to do inline), `_render(trip, W, H, with_day_trips, geo) -> (bytes, mode)`, and `render_png(trip, size=4000, photo_size=None, with_day_trips=False, geo=None) -> bytes`. `_render` uses `tempfile.mkstemp`, screenshots into it, reads the bytes and unlinks in a `finally`.
+- `cmd_render` now goes through `_render` and writes the bytes itself, so it keeps the basemap mode for its summary line. File names, previews and stdout are unchanged.
+- Two additions beyond the spec: `render_png` takes an optional `geo` so the API can reuse a loaded basemap across calls; and `_render` drops legs with `enabled: false` before drawing, matching a commented-out YAML leg. YAML-loaded trips have no `enabled` key, so the CLI is unaffected.
+- `render_png` does not normalize stop names to `str` the way `cmd_render` does for YAML input; JSON trips from the API already carry string names.
+- Verified: `uv run tripmap render .../regression-baseline/italy.yaml --size 800 --out ~/.cache/tripmap/after/` gives an `italy.png` that is `cmp`-identical to the baseline render. `render_png(italy, size=400, photo_size=(4, 3))` returns 52,942 bytes starting `\x89PNG`, IHDR 400x300. No `tripmap-*` temp files left in `$TMPDIR`. `uv run pytest`: 45 passed.
 
 ## Manual Follow-Up (not executed by Auto Run)
 
