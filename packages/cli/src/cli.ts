@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// The `tripmap` command: argument parsing with node:util parseArgs. The subcommand bodies are
-// wired in by later tasks; until then a parsed command reports that it is not implemented.
+// The `tripmap` command: argument parsing with node:util parseArgs, then dispatch. Subcommands
+// not wired in yet report that they are not implemented.
 
 import { readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
+import { runDraft, type DraftDeps } from './draft.ts'
 
 export const DEFAULT_PORT = 8787
 
@@ -171,7 +172,8 @@ export function parseCliArgs(argv: string[], env: NodeJS.ProcessEnv = process.en
   }
 }
 
-export async function main(argv: string[]): Promise<number> {
+/** Run the command line and return the exit code. `deps` lets tests stub the draft and listener. */
+export async function main(argv: string[], deps: DraftDeps = {}): Promise<number> {
   let command: Command
   try {
     command = parseCliArgs(argv)
@@ -187,6 +189,8 @@ export async function main(argv: string[]): Promise<number> {
     case 'version':
       console.log(version())
       return 0
+    case 'draft':
+      return runDraft(command, deps)
     default:
       console.error(`tripmap: "${command.cmd}" is not implemented yet`)
       return 1
