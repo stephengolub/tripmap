@@ -38,7 +38,7 @@ Rules for every task:
 
 - [x] Scaffold `web/` with Vite's React and TypeScript template: `npm create vite@latest web -- --template react-ts` run from `/Users/sgolub/code/tripmap`, using the npm path in the shared context. Then `cd web && npm install`. Verification: `cd web && npm run build` succeeds.
 
-- [ ] Add `web/vite.config.ts` proxy: `/api` to `http://127.0.0.1:8000`, and `server.port = 5173` with `strictPort: true`. Verification: the config file contains both `127.0.0.1:8000` and `5173` (check with `rg`).
+- [x] Add `web/vite.config.ts` proxy: `/api` to `http://127.0.0.1:8000`, and `server.port = 5173` with `strictPort: true`. Verification: the config file contains both `127.0.0.1:8000` and `5173` (check with `rg`).
 
 - [ ] Install runtime dependencies `leaflet`, `react-leaflet`, `@types/leaflet`, and dev dependencies `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`. Configure Vitest in `web/vite.config.ts` with `environment: "jsdom"` and a setup file `web/src/test/setup.ts` that imports jest-dom. Add scripts `test` (`vitest run`) and keep `build` as it is. Verification: `cd web && npm test` runs (it may report no tests yet, exit 0 with `--passWithNoTests`).
 
