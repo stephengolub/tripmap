@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LatLon, Stop, Trip } from '../types/trip'
-import { haversineKm, resolveVia, sortByDistance } from './geo'
+import { framingPoints, haversineKm, resolveVia, sortByDistance } from './geo'
 
 const DUBLIN: LatLon = [53.3498, -6.2603]
 const GALWAY: LatLon = [53.2707, -9.0568]
@@ -55,5 +55,23 @@ describe('sortByDistance', () => {
     expect(sortByDistance(stops, null).map((s) => s.name)).toEqual(before)
     sortByDistance(stops, DUBLIN)
     expect(stops.map((s) => s.name)).toEqual(before)
+  })
+})
+
+describe('framingPoints', () => {
+  const dublin = { name: 'Dublin', kind: 'major', at: [53.35, -6.26] as LatLon }
+  const galway = { name: 'Galway', kind: 'minor', at: [53.27, -9.06] as LatLon }
+  const lhr = { name: 'LHR', kind: 'hidden', at: [51.47, -0.45] as LatLon }
+
+  it('frames the visible stops and ignores hidden ones', () => {
+    expect(framingPoints([dublin, lhr, galway])).toEqual([dublin.at, galway.at])
+  })
+
+  it('falls back to every stop when all of them are hidden', () => {
+    expect(framingPoints([lhr])).toEqual([lhr.at])
+  })
+
+  it('returns nothing when there are no stops', () => {
+    expect(framingPoints([])).toEqual([])
   })
 })

@@ -1,8 +1,8 @@
 import { divIcon, latLngBounds, type LeafletMouseEvent } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useMemo, useState } from 'react'
-import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMapEvents } from 'react-leaflet'
-import { resolveVia } from '../trip/geo'
+import { useEffect, useMemo, useRef } from 'react'
+import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import { framingPoints, resolveVia } from '../trip/geo'
 import type { TripAction } from '../trip/reducer'
 import type { LatLon, Stop, Trip } from '../types/trip'
 import './TripMap.css'
@@ -42,6 +42,22 @@ type Props = {
   onStopAdded?: (at: LatLon) => void
   // Map clicks outside add mode, e.g. placing a route point from the leg list.
   onMapClick?: (at: LatLon) => void
+  // Changing this value refits the map to the visible stops. Drags and edits don't refit.
+  frameKey?: number
+}
+
+// Refits the map when frameKey changes (and once on mount). Stops are read from a ref,
+// so moving a pin doesn't trigger a refit.
+function FitToStops({ stops, frameKey }: { stops: Stop[]; frameKey: number }) {
+  const map = useMap()
+  const stopsRef = useRef(stops)
+  stopsRef.current = stops
+  useEffect(() => {
+    const points = framingPoints(stopsRef.current)
+    if (points.length === 0) return
+    map.fitBounds(latLngBounds(points), { padding: [40, 40], maxZoom: 14 })
+  }, [map, frameKey])
+  return null
 }
 
 function ClickHandler({ addMode, onAction, onStopAdded, onMapClick }: Omit<Props, 'trip'>) {
@@ -85,11 +101,7 @@ function StopMarker({ stop, onAction }: { stop: Stop; onAction: Props['onAction'
 
 // The editor's map. Lines are straight segments between a leg's resolved
 // via points; the road, rail and sea routes are drawn by the render step.
-export default function TripMap({ trip, onAction, addMode, onStopAdded, onMapClick }: Props) {
-  // Bounds are only read when the map mounts, so later drags don't refit it.
-  const [bounds] = useState(() =>
-    trip.stops.length ? latLngBounds(trip.stops.map((s) => s.at)).pad(0.15) : null,
-  )
+export default function TripMap({ trip, onAction, addMode, onStopAdded, onMapClick, frameKey = 0 }: Props) {
 
   const lines = trip.legs
     .map((leg, i) => ({
@@ -102,12 +114,9 @@ export default function TripMap({ trip, onAction, addMode, onStopAdded, onMapCli
 
   return (
     <div className={`trip-map${addMode ? ' trip-map-adding' : ''}`}>
-      <MapContainer
-        className="trip-map-canvas"
-        {...(bounds ? { bounds } : { center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM })}
-        scrollWheelZoom
-      >
+      <MapContainer className="trip-map-canvas" center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom>
         <TileLayer url={OSM_TILE_URL} attribution={OSM_ATTRIBUTION} />
+        <FitToStops stops={trip.stops} frameKey={frameKey} />
         <ClickHandler addMode={addMode} onAction={onAction} onStopAdded={onStopAdded} onMapClick={onMapClick} />
         {lines.map((line) => (
           <Polyline

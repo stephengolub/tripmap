@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { draftTrip, exportYaml, getPhotosStatus, importYaml } from './api/client'
 import App from './App'
+import { loadRecovery, saveRecovery } from './recovery'
 import type { Trip } from './types/trip'
 
 vi.mock('./api/client', () => ({
@@ -20,6 +21,7 @@ const imp = vi.mocked(importYaml)
 const exp = vi.mocked(exportYaml)
 
 beforeEach(() => {
+  localStorage.clear()
   status.mockReset()
   draft.mockReset()
   imp.mockReset()
@@ -71,7 +73,8 @@ describe('App file toolbar', () => {
     render(<App />)
 
     await user.upload(screen.getByLabelText('Open YAML file'), yamlFile('title: Ireland'))
-    expect(imp).toHaveBeenCalledWith('title: Ireland')
+    // the file is read asynchronously (FileReader), so wait for the import call
+    await waitFor(() => expect(imp).toHaveBeenCalledWith('title: Ireland'))
     await screen.findByRole('region', { name: 'Stops' })
     expect(stopNames()).toEqual(['Dublin', 'Galway'])
 
@@ -95,7 +98,7 @@ describe('App file toolbar', () => {
 
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     await user.upload(screen.getByLabelText('Open YAML file'), yamlFile())
-    expect(confirm).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1))
     expect(imp).toHaveBeenCalledTimes(1)
     expect(stopNames()).toEqual(['Dublin', 'Galway'])
 
@@ -264,5 +267,67 @@ describe('App', () => {
     // Removing the bad entry clears the summary.
     await user.click(screen.getByRole('button', { name: /remove leg 1 stop 2/i }))
     expect(screen.getByTestId('validation-summary')).toHaveTextContent('Ready to render.')
+  })
+})
+
+describe('recovery after a refresh', () => {
+  it('restores the filename, the edits and the stop list from localStorage', async () => {
+    status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    saveRecovery({ filename: 'ireland.yaml', base: ireland, current: { ...ireland, title: 'Edited' } })
+    render(<App />)
+
+    expect(screen.getByTestId('file-name')).toHaveTextContent('ireland.yaml')
+    expect(screen.getByTestId('file-name')).toHaveTextContent('(unsaved changes)')
+    expect(screen.getByRole('status', { name: 'Recovered session' })).toHaveTextContent(
+      'Restored ireland.yaml from your last session, with its unsaved edits.',
+    )
+    await screen.findByRole('region', { name: 'Stops' })
+    expect(stopNames()).toEqual(['Dublin', 'Galway'])
+  })
+
+  it('lists the stops above the map and leg editor', async () => {
+    status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    saveRecovery({ filename: 'ireland.yaml', base: ireland, current: ireland })
+    const { container } = render(<App />)
+
+    const stops = await screen.findByRole('region', { name: 'Stops' })
+    const main = container.querySelector('.editor-main')
+    expect(main).not.toBeNull()
+    expect(stops.compareDocumentPosition(main as Element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows the banner without unsaved wording when the restored trip was saved', async () => {
+    status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    saveRecovery({ filename: 'ireland.yaml', base: ireland, current: ireland })
+    render(<App />)
+
+    expect(screen.getByRole('status', { name: 'Recovered session' })).toHaveTextContent(
+      'Restored ireland.yaml from your last session.',
+    )
+    expect(screen.getByTestId('file-name')).not.toHaveTextContent('unsaved')
+  })
+
+  it('keeps the opened file name in the local cache', async () => {
+    status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    imp.mockResolvedValueOnce({ trip: ireland })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.upload(screen.getByLabelText('Open YAML file'), yamlFile())
+    await screen.findByRole('region', { name: 'Stops' })
+    expect(loadRecovery()?.filename).toBe('trip.yaml')
+    expect(loadRecovery()?.base).toEqual(ireland)
+  })
+
+  it('Close trip clears the cache and the editor', async () => {
+    status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    saveRecovery({ filename: 'ireland.yaml', base: ireland, current: ireland })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Close trip' }))
+    expect(loadRecovery()).toBeNull()
+    expect(screen.queryByTestId('file-name')).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Stops' })).toBeNull()
   })
 })

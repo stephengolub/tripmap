@@ -1,3 +1,4 @@
+import * as L from 'leaflet'
 import { render } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Trip } from '../types/trip'
@@ -28,5 +29,38 @@ describe('TripMap', () => {
     const hidden: Trip = { ...trip, stops: [...trip.stops, { name: 'LHR', kind: 'hidden', at: [51.47, -0.45] }] }
     const { container } = render(<TripMap trip={hidden} onAction={vi.fn()} addMode={false} />)
     expect(container.querySelectorAll('.leaflet-marker-icon')).toHaveLength(2)
+  })
+})
+
+describe('TripMap framing', () => {
+  const fit = () => vi.spyOn(L.Map.prototype, 'fitBounds')
+
+  it('fits the map to the visible stops on mount', () => {
+    const spy = fit()
+    render(<TripMap trip={trip} onAction={vi.fn()} addMode={false} />)
+    expect(spy).toHaveBeenCalledTimes(1)
+    const bounds = spy.mock.calls[0][0] as L.LatLngBounds
+    expect(bounds.getSouth()).toBeCloseTo(53.2707)
+    expect(bounds.getNorth()).toBeCloseTo(53.3498)
+    spy.mockRestore()
+  })
+
+  it('refits to the current stops when frameKey changes', () => {
+    const spy = fit()
+    const { rerender } = render(<TripMap trip={trip} onAction={vi.fn()} addMode={false} frameKey={0} />)
+    const after: Trip = { ...trip, stops: [trip.stops[0]] }
+    rerender(<TripMap trip={after} onAction={vi.fn()} addMode={false} frameKey={1} />)
+    expect(spy).toHaveBeenCalledTimes(2)
+    const bounds = spy.mock.calls[1][0] as L.LatLngBounds
+    expect(bounds.getSouth()).toBeCloseTo(53.3498)
+    spy.mockRestore()
+  })
+
+  it('does not refit when stops change without a new frameKey', () => {
+    const spy = fit()
+    const { rerender } = render(<TripMap trip={trip} onAction={vi.fn()} addMode={false} frameKey={0} />)
+    rerender(<TripMap trip={{ ...trip, stops: [trip.stops[0]] }} onAction={vi.fn()} addMode={false} frameKey={0} />)
+    expect(spy).toHaveBeenCalledTimes(1)
+    spy.mockRestore()
   })
 })

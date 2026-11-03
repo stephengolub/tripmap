@@ -27,6 +27,8 @@ export default function Editor({ initial, onChange }: Props) {
   const [addedAt, setAddedAt] = useState<LatLon | null>(null)
   const [png, setPng] = useState<Blob | null>(null)
   const [photoSize, setPhotoSize] = useState<PhotoSize | null>(null)
+  // Bumped by the Reframe button; TripMap refits to the visible stops when it changes.
+  const [frameKey, setFrameKey] = useState(0)
 
   const errors = useMemo(() => validateTrip(state), [state])
   const trip = useMemo(() => tripOf(state), [state])
@@ -59,6 +61,9 @@ export default function Editor({ initial, onChange }: Props) {
         >
           {mode.kind === 'addStop' ? 'Cancel add stop' : 'Add stop'}
         </button>
+        <button type="button" onClick={() => setFrameKey((n) => n + 1)} disabled={state.stops.length === 0}>
+          Reframe map
+        </button>
         {mode.kind === 'point' && (
           <>
             <span className="editor-hint">
@@ -71,6 +76,8 @@ export default function Editor({ initial, onChange }: Props) {
         )}
       </div>
 
+      <StopList stops={state.stops} onAction={dispatch} error={state.error} focusName={focusName} />
+
       <div className="editor-main">
         <TripMap
           trip={state}
@@ -78,6 +85,7 @@ export default function Editor({ initial, onChange }: Props) {
           addMode={mode.kind === 'addStop'}
           onStopAdded={onStopAdded}
           onMapClick={onMapClick}
+          frameKey={frameKey}
         />
         <LegList
           trip={state}
@@ -92,7 +100,6 @@ export default function Editor({ initial, onChange }: Props) {
       <RenderPanel trip={trip} photoSize={photoSize} onRendered={setPng} />
       <PhotoPreview png={png} onPhotoSize={setPhotoSize} />
 
-      <StopList stops={state.stops} onAction={dispatch} error={state.error} focusName={focusName} />
     </section>
   )
 }

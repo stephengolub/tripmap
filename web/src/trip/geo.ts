@@ -33,3 +33,10 @@ export function sortByDistance<T extends { at: LatLon }>(options: readonly T[], 
     .sort((x, y) => x.km - y.km || x.index - y.index)
     .map((x) => x.option)
 }
+
+// The points the map should frame: visible stops (hidden ones have no marker), or every stop
+// when none is visible. Empty when there are no stops.
+export function framingPoints(stops: readonly { kind: string; at: LatLon }[]): LatLon[] {
+  const visible = stops.filter((s) => s.kind !== 'hidden')
+  return (visible.length ? visible : stops).map((s) => s.at)
+}
