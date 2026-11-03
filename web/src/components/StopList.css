@@ -1,0 +1,46 @@
+.stop-list > ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stop-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stop-row-name,
+.stop-row select {
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.stop-row-name {
+  flex: 1 1 10rem;
+}
+
+.stop-row-at,
+.stop-row-nights {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.stop-row-remove {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.stop-row-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--error);
+  font-size: 0.85rem;
+}
