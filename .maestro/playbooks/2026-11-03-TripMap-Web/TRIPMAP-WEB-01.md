@@ -28,11 +28,11 @@ Rules for every task:
 
 ## Tasks
 
-- [ ] Capture a regression baseline before changing anything. Create `~/.cache/tripmap/regression-baseline/` and run `uv run tripmap draft --from 2026-04-29 --to 2026-05-08 -o ~/.cache/tripmap/regression-baseline/ireland.yaml`, the same for `--from 2024-05-02 --to 2024-05-08` as `italy.yaml`, and for `--from 2024-09-18 --to 2024-09-30` as `pnw.yaml`. Also render `italy.yaml` with `uv run tripmap render` into the same folder with `--size 800`. Verification: all four files exist and are non-empty. Record the photo counts printed by draft in the phase's `## Notes` section.
+- [x] Capture a regression baseline before changing anything. Create `~/.cache/tripmap/regression-baseline/` and run `uv run tripmap draft --from 2026-04-29 --to 2026-05-08 -o ~/.cache/tripmap/regression-baseline/ireland.yaml`, the same for `--from 2024-05-02 --to 2024-05-08` as `italy.yaml`, and for `--from 2024-09-18 --to 2024-09-30` as `pnw.yaml`. Also render `italy.yaml` with `uv run tripmap render` into the same folder with `--size 800`. Verification: all four files exist and are non-empty. Record the photo counts printed by draft in the phase's `## Notes` section.
 
-- [ ] In `src/tripmap/__init__.py`, move the trip-building logic out of `cmd_draft` into a top-level function `build_trip(library, start: datetime.date, end: datetime.date, title: str | None = None) -> tuple[dict, dict]`. It returns `(trip, stats)`. `trip` has keys `title`, `basemap` (always `"auto"`), `stops` (list of dicts with `name`, `kind`, `at` as `[lat, lon]`, `label`, and optional `note`, `nights`, `photos`, `when`), and `legs` (list of dicts with `date` as an ISO string, `mode`, `day_trip`, `via` where each item is a stop name or a `[lat, lon]` list, and `enabled` boolean). `stats` has `photo_count`, `overnight_names`, `quick_names`, `hidden_names`, and `leg_counts`. Keep the existing algorithm unchanged. Verification: `uv run python -c "import tripmap"` succeeds.
+- [x] In `src/tripmap/__init__.py`, move the trip-building logic out of `cmd_draft` into a top-level function `build_trip(library, start: datetime.date, end: datetime.date, title: str | None = None) -> tuple[dict, dict]`. It returns `(trip, stats)`. `trip` has keys `title`, `basemap` (always `"auto"`), `stops` (list of dicts with `name`, `kind`, `at` as `[lat, lon]`, `label`, and optional `note`, `nights`, `photos`, `when`), and `legs` (list of dicts with `date` as an ISO string, `mode`, `day_trip`, `via` where each item is a stop name or a `[lat, lon]` list, and `enabled` boolean). `stats` has `photo_count`, `overnight_names`, `quick_names`, `hidden_names`, and `leg_counts`. Keep the existing algorithm unchanged. Verification: `uv run python -c "import tripmap"` succeeds.
 
-- [ ] Replace `sys.exit` calls inside `build_trip` with `raise TripError(message)`, where `class TripError(Exception)` is defined at module level. `cmd_draft` catches `TripError` and calls `sys.exit` with the same message as before. Verification: `uv run pytest` passes, and `uv run tripmap draft --from 2020-01-01 --to 2020-01-02 -o /tmp/none.yaml` exits non-zero with a readable message and no traceback.
+- [x] Replace `sys.exit` calls inside `build_trip` with `raise TripError(message)`, where `class TripError(Exception)` is defined at module level. `cmd_draft` catches `TripError` and calls `sys.exit` with the same message as before. Verification: `uv run pytest` passes, and `uv run tripmap draft --from 2020-01-01 --to 2020-01-02 -o /tmp/none.yaml` exits non-zero with a readable message and no traceback.
 
 - [ ] Add `dump_trip_yaml(trip: dict) -> str` at module level. It produces the same text that `cmd_draft` writes today, including the header comments, the commented-out lines for disabled legs, and the "flights there and home are commented out" note. `cmd_draft` calls `build_trip` then `dump_trip_yaml`. Verification: rerun the four draft commands from the baseline task into `~/.cache/tripmap/after/` and run `cmp` against each baseline file. Any difference is a regression. Fix it before continuing. Note that the Italy photo count can differ from the committed `examples/italy.yaml`, because photos change. Compare against the baseline you captured, not the committed file.
 
@@ -49,6 +49,35 @@ Rules for every task:
 ## Notes
 
 (The agent fills this in: baseline photo counts, any byte differences found and how they were resolved.)
+
+### Baseline (2026-11-03, task 1)
+
+Files in `~/.cache/tripmap/regression-baseline/`: `ireland.yaml`, `italy.yaml`, `pnw.yaml`, `italy.png` (800x800, basemap region), all non-empty. Draft stdout/stderr saved beside them as `*.log`.
+
+| Trip | Photos | Overnights | Legs |
+|---|---|---|---|
+| Ireland 2026-04-29 → 05-08 | 810 | Dublin (3), Killarney (2), Dingle (1), Galway (3) | 7 drive, 2 boat; 2 day-trip days |
+| Italy 2024-05-02 → 05-08 | 571 | Bologna (2), Rome (2), Florence (2) | 3 drive, 2 train |
+| Alaska/PNW 2024-09-18 → 09-30 | 675 | San Antonio (1), Seattle (3), Victoria (1) | 8 drive, 9 boat, 1 train; 1 day-trip day |
+
+Caveat for the `cmp` checks in later tasks: during the Ireland baseline the Overpass station lookup failed on two mirrors (502, timeout). Overpass is best-effort and failures are not cached, so a later `cmp` difference may come from network flakiness rather than a code regression. If one appears, re-run both the baseline and the after-draft back to back before treating it as a regression.
+
+### build_trip (2026-11-03, task 2)
+
+- `build_trip` holds the whole detection algorithm unchanged; it ends by converting the internal stop/`Node` objects to plain data. `cmd_draft` now calls it and writes the YAML (and the summary print) from the returned `trip` and `stats` only, so the next task can lift that writer into `dump_trip_yaml` as-is.
+- Values are kept unrounded in `trip` (`at` and `[lat, lon]` via hints); rounding to 4 / 3 decimals happens only in the YAML writer, exactly as before. Optional stop keys (`note`, `nights`, `photos`, `when`) are omitted when absent rather than set to `None`.
+- `stats.overnight_names` is a plain name list; nights come from the matching stop. The day-trip-day count is derived from `trip["legs"]` (all legs, disabled included, as before).
+- The YAML header needs the photo count, the two dates and the output file name, none of which are in `trip`. `dump_trip_yaml(trip)` in the next task will need them passed in some way (extra kwargs or a header-meta key); that decision is left to that task.
+- Still uses `sys.exit` for the <2 photos case (next task).
+- Verified: `uv run python -c "import tripmap"` OK, `uv run pytest` 45 passed, and all three drafts (Ireland, Italy, PNW) rerun into a temp dir are `cmp`-identical to the baseline, with the same summary output.
+- Not committed: this playbook's rules allow local commits only when a task says so (the last task does).
+
+### TripError (2026-11-03, task 3)
+
+- `class TripError(Exception)` sits at module level above `km`. `build_trip` raises it for the fewer-than-2-photos case; `cmd_draft` catches it and `sys.exit`s with the same message.
+- Also converted `load_photos`'s "No Photos database at ..." exit, because `build_trip` calls it and a `SystemExit` escaping into the API's threadpool would be wrong. `cmd_trips` now catches it the same way, so CLI output and exit codes are unchanged (verified: `tripmap --library /nonexistent trips` prints the message, exit 1).
+- The playbook's verification range `2020-01-01 → 2020-01-02` has 8 geotagged photos, so it drafts successfully (exit 0). The error path was verified with `--from 1990-01-01 --to 1990-01-02`: prints `Only 0 geotagged photos between 1990-01-01 and 1990-01-02.`, exit 1, no traceback, no file written. `uv run pytest`: 45 passed.
+- `sys.exit` calls in `build_svg`, `find_chrome` and `cmd_render` are untouched; `render_png` (task 6) may want the same treatment for the API.
 
 ## Manual Follow-Up (not executed by Auto Run)
 

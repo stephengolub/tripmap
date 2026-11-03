@@ -38,6 +38,10 @@ STATION_NAME = re.compile(r"\b(rail(way)? station|train station|bahnhof|hauptbah
                           r"termini|estaci[oó]n de tren)\b", re.I)
 
 
+class TripError(Exception):
+    """A trip cannot be built or drawn; the message is meant for the user."""
+
+
 def km(a, b):
     la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
     h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
@@ -54,7 +58,7 @@ def load_photos(library, t0=None, t1=None):
     """[(utc_ts, local_datetime, lat, lon, place_blob)] for geotagged, non-trashed assets."""
     db = Path(library) / "database" / "Photos.sqlite"
     if not db.exists():
-        sys.exit(f"No Photos database at {db}")
+        raise TripError(f"No Photos database at {db}")
     tmp = Path(tempfile.mkdtemp(prefix="tripmap-"))
     try:
         for suf in ("", "-wal", "-shm"):
@@ -333,7 +337,10 @@ class Stations:
 
 def cmd_trips(args):
     since = dt.datetime.fromisoformat(args.since).timestamp() if args.since else 0
-    pts = load_photos(args.library, since)
+    try:
+        pts = load_photos(args.library, since)
+    except TripError as e:
+        sys.exit(str(e))
     if not pts:
         sys.exit("No geotagged photos found.")
     cells = {}
@@ -381,13 +388,17 @@ class Node:
         return (self.lat, self.lon)
 
 
-def cmd_draft(args):
-    d0, d1 = dt.date.fromisoformat(args.start), dt.date.fromisoformat(args.end)
+def build_trip(library, start: dt.date, end: dt.date, title: str | None = None) -> tuple[dict, dict]:
+    """Detect the route of the trip between two dates from the Photos library.
+
+    Returns (trip, stats). trip is the trip document as plain data, the same field
+    names as the trip YAML plus `enabled` on each leg; stats summarises the draft."""
+    d0, d1 = start, end
     t0 = dt.datetime.combine(d0, dt.time()).timestamp() - 86400 * 1.2
     t1 = dt.datetime.combine(d1, dt.time()).timestamp() + 86400 * 2.2
-    raw = [p for p in load_photos(args.library, t0, t1) if d0 <= p[1].date() <= d1]
+    raw = [p for p in load_photos(library, t0, t1) if d0 <= p[1].date() <= d1]
     if len(raw) < 2:
-        sys.exit(f"Only {len(raw)} geotagged photos between {d0} and {d1}.")
+        raise TripError(f"Only {len(raw)} geotagged photos between {d0} and {d1}.")
     log(f"{len(raw)} geotagged photos, {d0} → {d1}")
     geo, osm = Geo(), OSM()
 
@@ -675,17 +686,46 @@ def cmd_draft(args):
         j -= 1
     active = [l for l in legs if not l["off"]]
 
-    # 6. write YAML
+    # 6. the trip document, as plain data
     used = {id(n.ref) for l in legs for n in l["via"] if n.ref}
     in_active = {id(n.ref) for l in active for n in l["via"] if n.ref}
     for x in stops + bases:
         if id(x) in used and id(x) not in in_active:
             x["kind"], x["note"] = "hidden", "layover"
     all_stops = [b for b in bases] + [s for s in stops if id(s) in used]
+    trip_stops = []
+    for s in all_stops:
+        x = dict(name=s["name"], kind=s["kind"], at=[s["at"][0], s["at"][1]], label="auto")
+        for k in ("note", "nights", "photos", "when"):
+            if s.get(k) is not None:
+                x[k] = s[k]
+        trip_stops.append(x)
+    trip_legs = [dict(date=l["date"].isoformat(), mode=l["mode"], day_trip=bool(l["day_trip"]),
+                      via=[n.ref["name"] if n.ref else [n.lat, n.lon] for n in l["via"]],
+                      enabled=not l["off"])
+                 for l in legs]
+    trip = dict(title=title or f"Trip {d0:%b %-d} – {d1:%b %-d, %Y}", basemap="auto",
+                stops=trip_stops, legs=trip_legs)
+    counts = {}
+    for l in active:
+        counts[l["mode"]] = counts.get(l["mode"], 0) + 1
+    stats = dict(photo_count=len(raw),
+                 overnight_names=[b["name"] for b in bases],
+                 quick_names=[s["name"] for s in trip_stops if s["kind"] == "minor"],
+                 hidden_names=[s["name"] for s in trip_stops if s["kind"] == "hidden"],
+                 leg_counts=counts)
+    return trip, stats
+
+
+def cmd_draft(args):
+    d0, d1 = dt.date.fromisoformat(args.start), dt.date.fromisoformat(args.end)
+    try:
+        trip, stats = build_trip(args.library, d0, d1, args.title)
+    except TripError as e:
+        sys.exit(str(e))
     out = Path(args.output)
-    title = args.title or f"Trip {d0:%b %-d} – {d1:%b %-d, %Y}"
     q = lambda s: json.dumps(s, ensure_ascii=False)
-    L = [f"# tripmap draft from {len(raw)} photos, {d0} to {d1}. Edit freely, then:",
+    L = [f"# tripmap draft from {stats['photo_count']} photos, {d0} to {d1}. Edit freely, then:",
          f"#   tripmap render {out.name} --photo <background photo>",
          "#",
          "# stops: kind = major (red pin) | minor (gold star) | hidden (route passes, no marker)",
@@ -698,39 +738,36 @@ def cmd_draft(args):
          "#        the \"-with-day-trips\" version",
          "# basemap: auto | island (whole island, e.g. Ireland) | country | region (cropped, faded edges)",
          "",
-         f"title: {q(title)}",
-         "basemap: auto",
+         f"title: {q(trip['title'])}",
+         f"basemap: {trip['basemap']}",
          "",
          "stops:"]
-    for s in all_stops:
+    for s in trip["stops"]:
         note = (f"{s['nights']} night{'s' * (s['nights'] > 1)}" if s.get("nights") and not s.get("note")
                 else f"{s.get('photos', 0)} photos, {s.get('when', '')}")
         if s.get("note"):
             note += f" ({s['note']}; hidden by default)"
         L.append(f"  - {{name: {q(s['name'])}, kind: {s['kind']}, at: [{s['at'][0]:.4f}, {s['at'][1]:.4f}], "
-                 f"label: auto}}  # {note}")
+                 f"label: {s['label']}}}  # {note}")
     L += ["", "legs:"]
-    if any(l["off"] for l in legs):
+    if any(not l["enabled"] for l in trip["legs"]):
         L.insert(L.index("legs:"), "# The flights there and home are commented out (usually just a layover).\n"
                                   "# Uncomment them to draw them; their stops are already listed, hidden.")
-    for l in legs:
-        via = ", ".join(q(n.ref["name"]) if n.ref else f"[{n.lat:.3f}, {n.lon:.3f}]" for n in l["via"])
-        L.append(f"  {'# ' if l['off'] else ''}- {{date: {l['date']}, mode: {l['mode']}, "
+    for l in trip["legs"]:
+        via = ", ".join(q(v) if isinstance(v, str) else f"[{v[0]:.3f}, {v[1]:.3f}]" for v in l["via"])
+        L.append(f"  {'' if l['enabled'] else '# '}- {{date: {l['date']}, mode: {l['mode']}, "
                  f"day_trip: {str(l['day_trip']).lower()}, via: [{via}]}}")
     out.write_text("\n".join(L) + "\n")
 
+    nights = {s["name"]: s.get("nights") for s in trip["stops"]}
     print(f"Wrote {out}")
-    print(f"  {len(bases)} overnight stops: " + ", ".join(f"{b['name']} ({b['nights']})" for b in bases))
-    shown = [s for s in all_stops if s["kind"] == "minor"]
-    print(f"  {len(shown)} quick stops: " + ", ".join(s["name"] for s in shown))
-    hidden = [s for s in all_stops if s["kind"] == "hidden"]
-    if hidden:
-        print(f"  hidden: " + ", ".join(s["name"] for s in hidden))
-    counts = {}
-    for l in active:
-        counts[l["mode"]] = counts.get(l["mode"], 0) + 1
-    print("  legs: " + ", ".join(f"{v} {k}" for k, v in counts.items())
-          + f"; {len({l['date'] for l in legs if l['day_trip']})} day-trip days")
+    print(f"  {len(stats['overnight_names'])} overnight stops: "
+          + ", ".join(f"{n} ({nights[n]})" for n in stats["overnight_names"]))
+    print(f"  {len(stats['quick_names'])} quick stops: " + ", ".join(stats["quick_names"]))
+    if stats["hidden_names"]:
+        print(f"  hidden: " + ", ".join(stats["hidden_names"]))
+    print("  legs: " + ", ".join(f"{v} {k}" for k, v in stats["leg_counts"].items())
+          + f"; {len({l['date'] for l in trip['legs'] if l['day_trip']})} day-trip days")
     print(f"Next: review {out}, then tripmap render {out} --photo <background photo>")
 
 
