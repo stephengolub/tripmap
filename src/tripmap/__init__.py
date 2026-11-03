@@ -7,6 +7,9 @@
 Draft reads photo GPS only (the library is copied to a temp dir and never
 modified). Place names come from OpenStreetMap (Nominatim + Overpass) using
 rounded coordinates; road shapes come from the public OSRM router.
+
+The library defaults to ~/Pictures/Photos Library.photoslibrary; set the
+TRIPMAP_LIBRARY environment variable to point at another one.
 """
 import argparse, datetime as dt, hashlib, json, math, os, re, shutil, sqlite3, subprocess
 import plistlib, sys, tempfile, time, urllib.error, urllib.parse, urllib.request
@@ -18,7 +21,8 @@ from shapely import STRtree
 from shapely.geometry import LineString, MultiPolygon, Point, box, shape
 
 CACHE = Path.home() / ".cache" / "tripmap"
-LIBRARY = Path.home() / "Pictures" / "Photos Library.photoslibrary"
+LIBRARY = Path(os.environ.get("TRIPMAP_LIBRARY")
+               or Path.home() / "Pictures" / "Photos Library.photoslibrary")
 UA = "tripmap/1.0 (personal photo-album route maps)"
 CHROME_APP = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 CHROME_NAMES = ("google-chrome", "chromium", "chromium-browser")  # looked up on PATH

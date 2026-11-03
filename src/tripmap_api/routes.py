@@ -2,6 +2,7 @@
 its threadpool. Nothing here keeps state between requests."""
 from fastapi import APIRouter, HTTPException
 
+from . import photos
 from .models import (DraftRequest, DraftResponse, PhotosStatus, RenderRequest, SuggestModeRequest,
                      SuggestModeResponse, TripBody)
 
@@ -14,7 +15,7 @@ def _todo():
 
 @router.get("/photos/status", response_model=PhotosStatus)
 def photos_status():
-    _todo()
+    return photos.photos_status()
 
 
 @router.post("/trips/draft", response_model=DraftResponse)
