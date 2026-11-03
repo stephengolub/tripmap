@@ -8,6 +8,14 @@
 
 import { SEA_KM } from './constants.ts'
 
+// The Natural Earth files tripmap uses, and where they download from (GitHub serves them
+// with CORS open, so the browser can fetch them too).
+export const NE_LAND = ['ne_10m_land', 'ne_10m_minor_islands'] as const
+export const NE_COUNTRIES = 'ne_10m_admin_0_countries'
+
+export const naturalEarthUrl = (name: string) =>
+  `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/${name}.geojson`
+
 export type Ring = number[][] // [lon, lat] pairs, GeoJSON order
 export type PolygonCoords = Ring[] // exterior first, then holes
 export type Feature = { geometry: { type: string; coordinates: unknown } | null }

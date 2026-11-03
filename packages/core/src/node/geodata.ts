@@ -4,16 +4,10 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { Geo, type Feature } from '../geodata.ts'
+import { Geo, NE_COUNTRIES, NE_LAND, naturalEarthUrl, type Feature } from '../geodata.ts'
 import type { Log } from '../stops.ts'
 
-export { Geo, type Feature }
-
-export const NE_LAND = ['ne_10m_land', 'ne_10m_minor_islands'] as const
-export const NE_COUNTRIES = 'ne_10m_admin_0_countries'
-
-export const naturalEarthUrl = (name: string) =>
-  `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/${name}.geojson`
+export { Geo, NE_COUNTRIES, NE_LAND, naturalEarthUrl, type Feature }
 
 // The path to a Natural Earth file, downloading it once when it is missing. Written to a
 // temp name and renamed, so an interrupted download never leaves a truncated file behind.

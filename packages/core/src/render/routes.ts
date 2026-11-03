@@ -20,6 +20,30 @@ export type RouteServices = Pick<Services, 'rail' | 'stations'> & {
   road(coords: LatLon[]): Promise<RoadPiece[]>
 }
 
+// An OSRM /route answer with steps=true and geometries=geojson.
+export type OsrmRouteResponse = {
+  code?: string
+  routes?: { legs: { steps: { mode?: string; geometry: { coordinates: [number, number][] } }[] }[] }[]
+}
+
+// Append one chunk's OSRM answer to `pieces`, merging runs of the same mode. A failed
+// answer becomes a straight line through the chunk, as osrm() did in the Python.
+export function addOsrmPieces(pieces: RoadPiece[], chunk: LatLon[], data: OsrmRouteResponse): void {
+  if (data.code !== 'Ok' || !data.routes) {
+    pieces.push(['drive', [...chunk]])
+    return
+  }
+  for (const leg of data.routes[0].legs) {
+    for (const st of leg.steps) {
+      const m = st.mode === 'ferry' ? 'ferry' : 'drive'
+      const pts = st.geometry.coordinates.map(([lo, la]): LatLon => [la, lo])
+      const last = pieces[pieces.length - 1]
+      if (last && last[0] === m) last[1].push(...pts.slice(1))
+      else pieces.push([m, pts])
+    }
+  }
+}
+
 // Anything with land polygons: a Geo, or pre-simplified geodata in the browser.
 export type LandGeo = { readonly landPolygons: readonly PolygonCoords[] }
 

@@ -18,8 +18,12 @@ export class Canvas {
   readonly s: number
   readonly ox: number
   readonly oy: number
+  readonly w: number
+  readonly h: number
 
-  constructor(readonly w: number, readonly h: number, bbox: Box) {
+  constructor(w: number, h: number, bbox: Box) {
+    this.w = w
+    this.h = h
     const lat0 = (bbox[1] + bbox[3]) / 2
     this.kx = Math.cos((lat0 * Math.PI) / 180)
     const bw = (bbox[2] - bbox[0]) * this.kx

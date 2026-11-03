@@ -1,6 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { RenderContext } from '../render/context'
 import type { Trip } from '../types/trip'
-import {
+
+// rasterizeSvgInBrowser needs a real canvas; jsdom has none, so it is stubbed and the
+// SVG it was handed is kept for the assertions.
+const raster = vi.hoisted(() => ({ svgs: [] as string[] }))
+vi.mock('@tripmap/core', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@tripmap/core')>()
+  return {
+    ...real,
+    rasterizeSvgInBrowser: vi.fn(async (svg: string, w: number, h: number) => {
+      raster.svgs.push(svg)
+      return new Blob([`${w}x${h}`], { type: 'image/png' })
+    }),
+  }
+})
+
+const {
   ApiError,
   draftTrip,
   exportYaml,
@@ -8,7 +24,7 @@ import {
   importYaml,
   renderTrip,
   suggestMode,
-} from './client'
+} = await import('./client')
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -25,7 +41,17 @@ function mockFetch(res: Response) {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+  vi.resetModules()
+  raster.svgs.length = 0
 })
+
+// The client module as built in `mode`: MODE is read once at import.
+async function clientIn(mode: 'local' | 'hosted') {
+  vi.stubEnv('VITE_MODE', mode)
+  vi.resetModules()
+  return await import('./client')
+}
 
 describe('getPhotosStatus', () => {
   it('parses the ok shape', async () => {
@@ -60,15 +86,15 @@ describe('getPhotosStatus', () => {
 describe('draftTrip', () => {
   it('posts the correct JSON body', async () => {
     const fetchMock = mockFetch(jsonResponse({ trip: { stops: [], legs: [] }, stats: {} }))
-    await draftTrip('2026-05-01', '2026-05-04', 'Ireland sample')
+    await draftTrip('2026-05-01', '2026-05-04', 'Sample trip')
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/trips/draft')
+    expect(url).toBe('/api/detect')
     expect(init.method).toBe('POST')
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(JSON.parse(init.body)).toEqual({
-      start: '2026-05-01',
-      end: '2026-05-04',
-      title: 'Ireland sample',
+      from: '2026-05-01',
+      to: '2026-05-04',
+      title: 'Sample trip',
     })
   })
 
@@ -76,8 +102,8 @@ describe('draftTrip', () => {
     const fetchMock = mockFetch(jsonResponse({ trip: {}, stats: {} }))
     await draftTrip('2026-05-01', '2026-05-04')
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-      start: '2026-05-01',
-      end: '2026-05-04',
+      from: '2026-05-01',
+      to: '2026-05-04',
     })
   })
 
@@ -104,13 +130,20 @@ describe('draftTrip', () => {
 })
 
 describe('importYaml', () => {
-  it('posts the YAML as text/plain', async () => {
-    const fetchMock = mockFetch(jsonResponse({ trip: { stops: [], legs: [] } }))
-    await importYaml('title: x\n')
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/trips/import')
-    expect(init.headers).toEqual({ 'Content-Type': 'text/plain' })
-    expect(init.body).toBe('title: x\n')
+  it('parses YAML in the browser without calling fetch', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const { trip } = await importYaml(
+      'title: Synthetic\nstops:\n  - {name: A, at: [10.0, 20.0], kind: major}\n  - {name: B, at: [10.5, 20.5], kind: major}\nlegs:\n  - {date: 2030-01-02, mode: drive, via: [A, B]}\n',
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(trip.title).toBe('Synthetic')
+    expect(trip.stops.map((s) => s.name)).toEqual(['A', 'B'])
+    expect(trip.legs[0]).toMatchObject({ mode: 'drive', via: ['A', 'B'], enabled: true })
+  })
+
+  it('turns a bad file into ApiError 422', async () => {
+    await expect(importYaml('stops: [')).rejects.toMatchObject({ status: 422 })
   })
 })
 
@@ -120,32 +153,61 @@ const trip = {
   legs: [],
 } as unknown as Trip
 
+// Synthetic geodata: one square of land around the stops, and roads as straight lines.
+async function fakeContext(): Promise<() => Promise<RenderContext>> {
+  const { Geo } = await import('@tripmap/core')
+  const land = {
+    geometry: { type: 'Polygon', coordinates: [[[15, 35], [25, 35], [25, 45], [15, 45], [15, 35]]] },
+  }
+  const geo = new Geo([land], () => [land])
+  return async () => ({
+    geo,
+    services: {
+      road: async (coords) => [['drive', coords]],
+      rail: async () => null,
+      stations: async () => ({ nearest: () => null }),
+    },
+  })
+}
+
+const renderable = {
+  title: 'Synthetic',
+  basemap: 'region',
+  stops: [
+    { name: 'A', at: [40.0, 20.0], kind: 'major' },
+    { name: 'B', at: [40.5, 21.0], kind: 'major' },
+  ],
+  legs: [{ date: '2030-01-02', mode: 'drive', via: ['A', 'B'], enabled: true }],
+} as unknown as Trip
+
 describe('renderTrip', () => {
-  it('posts the trip and options as JSON and returns a Blob', async () => {
-    const fetchMock = mockFetch(
-      new Response(new Uint8Array([137, 80, 78, 71]), { headers: { 'Content-Type': 'image/png' } }),
+  for (const mode of ['local', 'hosted'] as const) {
+    it(`renders in the browser and never calls fetch (${mode} mode)`, async () => {
+      const client = await clientIn(mode)
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+      const blob = await client.renderTrip(renderable, { size: 1600 }, await fakeContext())
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(blob.type).toBe('image/png')
+      expect(await blob.text()).toBe('1600x1600')
+      expect(raster.svgs).toHaveLength(1)
+      expect(raster.svgs[0]).toMatch(/^<svg/)
+      expect(raster.svgs[0]).not.toContain('<script')
+    })
+  }
+
+  it('draws in the photo shape', async () => {
+    const blob = await renderTrip(
+      renderable,
+      { size: 1600, photo_size: { width: 4000, height: 3000 } },
+      await fakeContext(),
     )
-    const blob = await renderTrip(trip, { size: 1600, with_day_trips: true })
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/trips/render')
-    expect(init.method).toBe('POST')
-    expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
-    expect(JSON.parse(init.body)).toEqual({ trip, size: 1600, with_day_trips: true })
-    // Response.blob() hands back Node's Blob, not jsdom's, so instanceof would compare realms.
-    expect(Object.prototype.toString.call(blob)).toBe('[object Blob]')
-    expect(blob.type).toBe('image/png')
-    expect(blob.size).toBe(4)
+    expect(await blob.text()).toBe('1600x1200')
   })
 
-  it('sends only the trip when no options are given', async () => {
-    const fetchMock = mockFetch(new Response(new Uint8Array([1])))
-    await renderTrip(trip)
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ trip })
-  })
-
-  it('surfaces a 503 when Chrome is missing', async () => {
-    mockFetch(jsonResponse({ detail: 'Chrome not found' }, 503))
-    await expect(renderTrip(trip)).rejects.toMatchObject({ status: 503, message: 'Chrome not found' })
+  it('reports a bad stop name as ApiError 422', async () => {
+    const bad = { ...renderable, legs: [{ ...renderable.legs[0], via: ['A', 'Nowhere'] }] } as Trip
+    await expect(renderTrip(bad, { size: 400 }, await fakeContext())).rejects.toMatchObject({ status: 422 })
   })
 })
 
@@ -156,11 +218,21 @@ describe('exportYaml', () => {
     )
     const text = await exportYaml(trip)
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/trips/yaml')
+    expect(url).toBe('/api/yaml')
     expect(init.method).toBe('POST')
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(JSON.parse(init.body)).toEqual({ trip })
     expect(text).toBe('title: Italy\n')
+  })
+
+  it('writes the YAML with core in hosted mode, without fetch', async () => {
+    const client = await clientIn('hosted')
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const text = await client.exportYaml(renderable)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(text).toContain('title: "Synthetic"')
+    expect(text).toContain('mode: drive')
   })
 })
 
@@ -169,7 +241,7 @@ describe('suggestMode', () => {
     const fetchMock = mockFetch(jsonResponse({ mode: 'drive', reason: 'A road links them.' }))
     const res = await suggestMode([53.35, -6.26], [53.27, -9.06], 2.5)
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/legs/suggest-mode')
+    expect(url).toBe('/api/suggest-mode')
     expect(init.method).toBe('POST')
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(JSON.parse(init.body)).toEqual({
@@ -190,10 +262,26 @@ describe('suggestMode', () => {
   })
 })
 
-describe('importYaml method', () => {
-  it('uses POST', async () => {
-    const fetchMock = mockFetch(jsonResponse({ trip: { stops: [], legs: [] } }))
-    await importYaml('title: x\n')
-    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+describe('suggestMode errors', () => {
+  it('says the feature is unavailable when serve answers 404', async () => {
+    mockFetch(jsonResponse({ detail: 'Not found' }, 404))
+    await expect(suggestMode([10, 20], [11, 21])).rejects.toMatchObject({
+      status: 404,
+      message: 'Mode suggestions are not available from this tripmap serve.',
+    })
+  })
+})
+
+describe('hosted mode', () => {
+  it('refuses the server calls without calling fetch', async () => {
+    const client = await clientIn('hosted')
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(client.getPhotosStatus()).rejects.toBeInstanceOf(client.ApiError)
+    await expect(client.draftTrip('2030-01-01', '2030-01-03')).rejects.toMatchObject({ status: 0 })
+    await expect(client.suggestMode([10, 20], [11, 21])).rejects.toMatchObject({
+      message: expect.stringContaining('tripmap serve'),
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

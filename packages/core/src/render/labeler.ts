@@ -24,12 +24,17 @@ const escape = (s: string) => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;')
 
 export class Labeler {
   readonly boxes: LabelBox[] = []
+  readonly w: number
+  readonly h: number
+  readonly route: XY[]
 
-  constructor(
-    readonly w: number,
-    readonly h: number,
-    readonly route: XY[],
-  ) {}
+  // Plain fields rather than parameter properties, so the web app's erasable-syntax
+  // build can typecheck core too.
+  constructor(w: number, h: number, route: XY[]) {
+    this.w = w
+    this.h = h
+    this.route = route
+  }
 
   // Reserve space (an icon, a pin) that labels should avoid.
   block(b: LabelBox): void {

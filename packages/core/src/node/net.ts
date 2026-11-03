@@ -12,6 +12,7 @@ import { dirname, join } from 'node:path'
 import { km } from '../geo.ts'
 import type { Log } from '../stops.ts'
 import type { LatLon } from '../types.ts'
+import { addOsrmPieces, type OsrmRouteResponse } from '../render/routes.ts'
 import type { CachePaths } from './services.ts'
 
 // ---------------------------------------------------------------- Python formatting
@@ -245,7 +246,7 @@ export class Net {
       const chunk = r.slice(i, i + 25)
       const cs = chunk.map(([lat, lon]) => `${pyRepr(lon)},${pyRepr(lat)}`).join(';')
       const path = join(this.paths.osrm, sha1(cs) + '.json')
-      let data: { code?: string; routes?: { legs: { steps: { mode?: string; geometry: { coordinates: [number, number][] } }[] }[] }[] }
+      let data: OsrmRouteResponse
       if (existsSync(path)) {
         data = JSON.parse(readFileSync(path, 'utf8'))
       } else {
@@ -260,19 +261,7 @@ export class Net {
         if (data.code === 'Ok') write(path, data)
         await this.sleep(1000)
       }
-      if (data.code !== 'Ok' || !data.routes) {
-        pieces.push(['drive', [...chunk]])
-        continue
-      }
-      for (const leg of data.routes[0].legs) {
-        for (const st of leg.steps) {
-          const m = st.mode === 'ferry' ? 'ferry' : 'drive'
-          const pts = st.geometry.coordinates.map(([lo, la]): LatLon => [la, lo])
-          const last = pieces[pieces.length - 1]
-          if (last && last[0] === m) last[1].push(...pts.slice(1))
-          else pieces.push([m, pts])
-        }
-      }
+      addOsrmPieces(pieces, chunk, data)
     }
     return pieces
   }

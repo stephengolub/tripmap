@@ -15,7 +15,7 @@ type Props = {
   onRendered?: (png: Blob) => void
 }
 
-// Posts the trip to /api/trips/render and shows the PNG it gets back. The
+// Renders the trip in this tab (buildSvg + canvas, see api/client) and shows the PNG. The
 // image is held as an object URL in this tab only.
 export default function RenderPanel({ trip, photoSize, onRendered }: Props) {
   const [withDayTrips, setWithDayTrips] = useState(false)
