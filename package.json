@@ -6,9 +6,9 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run && npm test -w @tripmap/web",
     "build": "npm run build --workspaces --if-present",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b && tsc -p packages/cli --noEmit && npm run typecheck -w @tripmap/web"
   },
   "engines": {
     "node": ">=22.5"
