@@ -1,6 +1,6 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Wrap the real DatabaseSync so the test can see every path it is asked to open.
@@ -74,14 +74,13 @@ describe('readGeotaggedPhotos', () => {
   })
 
   it('opens only a temp copy, never the live database, and cleans it up', () => {
-    const before = readdirSync(tmpdir()).filter((n) => n.startsWith('tripmap-') && !n.startsWith('tripmap-test-'))
     readGeotaggedPhotos(lib, 0, 4e12)
     expect(opened).toHaveLength(1)
     expect(opened[0]).not.toBe(live)
     expect(opened[0].startsWith(lib)).toBe(false)
     expect(opened[0].endsWith('Photos.sqlite')).toBe(true)
-    const after = readdirSync(tmpdir()).filter((n) => n.startsWith('tripmap-') && !n.startsWith('tripmap-test-'))
-    expect(after.length).toBeLessThanOrEqual(before.length)
+    // Check this call's own temp dir; counting every tripmap-* dir races other test files.
+    expect(existsSync(dirname(opened[0]))).toBe(false)
   })
 
   it('throws not_found for a missing library', () => {

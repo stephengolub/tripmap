@@ -16,7 +16,8 @@
   },
   "scripts": {
     "build": "tsc -b tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node scripts/copy-web-dist.mjs"
   },
   "dependencies": {
     "@tripmap/core": "*"

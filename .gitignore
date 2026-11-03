@@ -7,3 +7,4 @@ node_modules/
 packages/*/dist/
 test-results/
 *.tsbuildinfo
+packages/cli/web-dist/
