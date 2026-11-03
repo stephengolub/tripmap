@@ -23,7 +23,8 @@ land with a white coastline.
   `~/Pictures/Photos Library.photoslibrary` by default (`--library` overrides it).
 - **[uv](https://docs.astral.sh/uv/)** to install and run tripmap. Python 3.11 or newer
   is fetched by uv if you don't have one.
-- **Google Chrome** at `/Applications/Google Chrome.app`, used headless to rasterize the SVG.
+- **Google Chrome or Chromium**, used headless to rasterize the SVG into the PNG. It is found
+  at `/Applications/Google Chrome.app`, or on your PATH, or set with `TRIPMAP_CHROME`.
 - **ImageMagick** (`magick` on your PATH), only for `render --photo`.
 - Internet access on the first run, for the basemap data and route lookups (see
   [Privacy and network use](#privacy-and-network-use)).
@@ -137,8 +138,10 @@ Place names come from data Photos already stores on your Mac.
 
 ## Troubleshooting
 
-**`Rendering needs Google Chrome at ...`** Chrome is not at the default path. The path is
-a constant, `CHROME` in `tripmap.py`. Edit it if Chrome lives elsewhere.
+**`Rendering needs Google Chrome or Chromium`** tripmap couldn't find a browser. Install
+Chrome, or point at an existing one: `export TRIPMAP_CHROME=/usr/bin/chromium`. The lookup
+order is `$TRIPMAP_CHROME`, then `/Applications/Google Chrome.app`, then `google-chrome`,
+`chromium` or `chromium-browser` on your PATH.
 
 **`--photo` fails with `magick: command not found`.** Install ImageMagick (`brew install imagemagick`).
 

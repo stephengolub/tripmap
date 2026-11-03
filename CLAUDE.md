@@ -11,6 +11,8 @@ trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how
 - Installed with `uv tool install --editable ~/code/tripmap`, which puts `tripmap` on
   `~/.local/bin`. It is an editable install, so source edits apply without reinstalling.
   Changing the dependencies needs `uv lock` and `uv sync`, then `uv tool upgrade tripmap`.
+- Chrome is the SVG rasterizer, not a runtime dependency: `find_chrome()` checks
+  `$TRIPMAP_CHROME`, then the macOS app, then PATH. Keep it that way; don't hardcode a path.
 - `uv run pytest` runs `tests/` offline. The network-facing tests stub `urllib` and redirect
   `tripmap.CACHE` to a temp directory via the `cache` fixture in `tests/conftest.py`. Add
   new HTTP-touching code under the same stubs.

@@ -20,7 +20,8 @@ from shapely.geometry import LineString, MultiPolygon, Point, box, shape
 CACHE = Path.home() / ".cache" / "tripmap"
 LIBRARY = Path.home() / "Pictures" / "Photos Library.photoslibrary"
 UA = "tripmap/1.0 (personal photo-album route maps)"
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+CHROME_APP = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+CHROME_NAMES = ("google-chrome", "chromium", "chromium-browser")  # looked up on PATH
 APPLE_EPOCH = 978307200
 
 # Detection tuning
@@ -1269,13 +1270,30 @@ def build_svg(trip, W, H, with_day_trips, geo):
     return "\n".join(parts_), mode
 
 
+def find_chrome():
+    """The Chrome binary to rasterize with: $TRIPMAP_CHROME if set (it must exist), else the
+    macOS app, else the first of CHROME_NAMES on PATH. Exits with a clear message if none."""
+    env = os.environ.get("TRIPMAP_CHROME")
+    if env:
+        if Path(env).is_file() and os.access(env, os.X_OK):
+            return env
+        sys.exit(f"TRIPMAP_CHROME is set to {env!r}, which is not an executable file")
+    if Path(CHROME_APP).exists():
+        return CHROME_APP
+    for name in CHROME_NAMES:
+        found = shutil.which(name)
+        if found:
+            return found
+    sys.exit("Rendering needs Google Chrome or Chromium. Install it, or set TRIPMAP_CHROME "
+             "to the path of its executable (for example /usr/bin/chromium).")
+
+
 def screenshot(svg, png, W, H):
-    if not Path(CHROME).exists():
-        sys.exit(f"Rendering needs Google Chrome at {CHROME}")
+    chrome = find_chrome()
     html = Path(tempfile.mkdtemp(prefix="tripmap-")) / "map.html"
     html.write_text('<html><body style="margin:0;background:transparent">' + svg + "</body></html>")
     try:
-        subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars",
+        subprocess.run([chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars",
                         f"--window-size={W},{H}", "--force-device-scale-factor=1",
                         "--default-background-color=00000000", f"--screenshot={Path(png).resolve()}",
                         html.as_uri()], check=True, capture_output=True, timeout=180)
