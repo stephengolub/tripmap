@@ -25,6 +25,24 @@ Ground rules:
 
 The examples below use public city centres, not real trip data.
 
+## How the web app calls it
+
+The browser reaches the API only through the Vite dev server's `/api` proxy, through the
+functions in `web/src/api/client.ts`. Run both with `scripts/dev.sh` (see the README's
+"Web app" section).
+
+| Web app action | Client function | Endpoint |
+|---|---|---|
+| Photos check on load | `getPhotosStatus` | `GET /api/photos/status` |
+| Draft | `draftTrip` | `POST /api/trips/draft` |
+| Render (1600 px, `photo_size` from the preview photo) | `renderTrip` | `POST /api/trips/render` |
+| Save YAML (downloads `trip.yaml`) | `exportYaml` | `POST /api/trips/yaml` |
+| Open YAML (file read with `FileReader`) | `importYaml` | `POST /api/trips/import` |
+| Mode suggestion for a leg | `suggestMode` | `POST /api/legs/suggest-mode` |
+
+The photo preview never calls the API: the background photo stays in the browser and is
+composited on a canvas.
+
 ## Endpoints
 
 ### GET /api/photos/status

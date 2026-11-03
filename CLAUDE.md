@@ -20,6 +20,9 @@ trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how
   install. `cd web && npm test` (Vitest, offline, mocks the API client) and `npm run build`.
   It reaches `tripmap-api` only through the dev server's `/api` proxy; the trip lives in
   browser state, never on the server.
+- `cd web && npm run test:e2e` (Playwright) starts both servers from `web/playwright.config.ts`
+  and opens `examples/italy.yaml`, so it needs no network or Photos access, but render needs
+  Chrome. `scripts/dev.sh` runs the web app locally (needs `uv sync --all-extras` once).
 - Not unit-tested: the nested detection logic in `cmd_draft`, the full SVG render, and the
   Photos reader. `examples/` is the regression check for those.
 
@@ -27,6 +30,30 @@ trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how
 - `tripmap draft --from DATE --to DATE -o trip.yaml`: detect the route, write an editable YAML.
 - `tripmap render trip.yaml --photo bg.jpg`: draw the PNG(s) plus a preview composited on
   the photo. Headless Chrome rasterizes the SVG.
+
+## Web app architecture (don't change without recording why)
+
+- Layout: new Python code goes under `src/`, never at the repo root. The core package is
+  `src/tripmap/`; the API is a second package, `src/tripmap_api/` (FastAPI, the `web` extra).
+  Tests are in `tests/`, the front end in `web/`, scripts in `scripts/`. Endpoints are
+  documented in `docs/api.md`.
+- Front end: Vite + React + TypeScript, Leaflet via react-leaflet, OpenStreetMap raster
+  tiles from `https://tile.openstreetmap.org/{z}/{x}/{y}.png` with the attribution
+  `© OpenStreetMap contributors`. Never prefetch or bulk-download tiles.
+- **The server is stateless.** It keeps no session, no trip, and no per-user state. The
+  browser owns the trip document and sends it in each request body. Disk caches under
+  `~/.cache/tripmap` are allowed because they are caches, not state. The background photo
+  for the preview never leaves the browser.
+- The API binds to `127.0.0.1` only and allows CORS from `http://localhost:5173` only.
+- **Never log coordinates, photo paths, or photo contents.** Route coordinates are personal
+  location data. Logs may say counts and status codes.
+- Trip JSON uses the trip YAML's field names plus an `enabled` boolean per leg (default
+  true). A disabled leg is written as a commented-out YAML line.
+- Endpoints doing blocking work (draft calls Overpass, OSRM, BRouter for tens of seconds)
+  are plain `def`, so FastAPI runs them in its threadpool.
+- Any server-side HTTP call sets a descriptive User-Agent.
+- Node is the absolute asdf path `/Users/sgolub/.asdf/installs/nodejs/22.14.0/bin/` when
+  `npm` is not on PATH.
 
 ## Key decisions (the reasons matter)
 

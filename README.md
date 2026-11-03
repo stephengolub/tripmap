@@ -11,6 +11,7 @@ land with a white coastline.
 - [Install](#install)
 - [Quick start](#quick-start)
 - [Commands](#commands)
+- [Web app](#web-app): a local browser editor for drafts, with render and photo preview
 - [Trip files](docs/trip-format.md): stops, legs, modes, basemaps
 - [How `draft` decides](docs/how-draft-works.md): overnights, stars, boats, trains, flights
 - [HTTP API](docs/api.md): the `tripmap-api` endpoints behind the web app
@@ -101,6 +102,41 @@ Draws a trip file as transparent PNG overlays.
 
 `--library PATH` points at a different Photos library.
 
+## Web app
+
+A browser editor over the same code: draft a trip from Photos, fix stops and legs on a
+map, render the PNG, and preview it over a photo. It is a local app for this Mac, not a
+hosted service.
+
+```sh
+uv sync --all-extras       # once: installs FastAPI and uvicorn (the "web" extra)
+scripts/dev.sh             # API on 127.0.0.1:8000, app on http://localhost:5173
+```
+
+`scripts/dev.sh` runs both servers in the foreground and stops both on Ctrl-C. It runs
+`npm install` in `web/` the first time. Open http://localhost:5173.
+
+**Photos needs Full Disk Access.** macOS blocks reading the Photos library until the app
+that started the server is allowed. Open **System Settings > Privacy & Security > Full Disk
+Access**, turn it on for your terminal app (Terminal, iTerm, or whatever ran
+`scripts/dev.sh`), then quit and reopen that app and start the script again. The web app
+checks this on load and says so when it is blocked. Opening a YAML file works without it;
+only drafting from Photos needs it.
+
+In the app:
+
+- **Draft** a date range, the same as `tripmap draft`. It takes tens of seconds.
+- **Edit** stops and legs. The map shows OpenStreetMap tiles.
+- **Render** draws the PNG at 1600 px, with a "Show day trips" toggle and a download link.
+- **Photo preview** composites the PNG over a photo you pick. The photo is read in the
+  browser and never uploaded.
+- **Open YAML** and **Save YAML** load and save the same trip files the CLI uses.
+
+**Nothing is saved on the server.** The API is stateless: the trip lives in the browser
+tab and goes to the server in each request. Close the tab without saving YAML and the
+edits are gone. The server binds to `127.0.0.1` only and never logs coordinates or photo
+paths. The endpoints are in [docs/api.md](docs/api.md).
+
 ## Trip files
 
 A trip file has a title, a basemap, a list of **stops** (pins, stars, or hidden points),
@@ -181,7 +217,11 @@ Layout:
 - `tests/`: unit tests. Network calls are stubbed and the cache is redirected to a temp
   directory, so the suite is offline and leaves `~/.cache/tripmap` alone.
 - `examples/`: real trip data and previews. See the note in `CLAUDE.md` about publishing.
-- `docs/`: the trip-file reference and the detection rules.
+- `src/tripmap_api/`: the FastAPI app behind the web app.
+- `web/`: the Vite + React + TypeScript front end. `npm test` (Vitest) and
+  `npm run test:e2e` (Playwright; starts both servers itself).
+- `scripts/dev.sh`: runs the web app locally.
+- `docs/`: the trip-file reference, the detection rules, and the HTTP API.
 
 Not covered by tests yet: the detection logic inside `cmd_draft` (it is nested, so it can't
 be called on its own), the full SVG render, and the Photos database reader. The `examples/`
