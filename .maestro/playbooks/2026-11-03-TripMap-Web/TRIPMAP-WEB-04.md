@@ -40,7 +40,7 @@ Rules for every task:
 
 - [x] Create `web/src/trip/reducer.ts` with `tripReducer` and the action types above. Export `TripAction` as a discriminated union. Verification: `web/src/trip/reducer.test.ts` covers renameStop updating `via` references, removeStop refusing when referenced, moveStop changing only `at`, setLegMode, insertVia and removeVia at given indices, and that the input state is not mutated (deep-freeze the input in the test).
 
-- [ ] Create `web/src/trip/geo.ts` with `haversineKm(a, b)`, `resolveVia(trip, via)` (returns a `LatLon` for a stop name or a point, or `null` for an unknown name), and `sortByDistance(options, from)`. Verification: `web/src/trip/geo.test.ts` checks Dublin to Galway is about 190 km, that an unknown name resolves to `null`, and that sorting puts the nearest first.
+- [x] Create `web/src/trip/geo.ts` with `haversineKm(a, b)`, `resolveVia(trip, via)` (returns a `LatLon` for a stop name or a point, or `null` for an unknown name), and `sortByDistance(options, from)`. Verification: `web/src/trip/geo.test.ts` checks Dublin to Galway is about 190 km, that an unknown name resolves to `null`, and that sorting puts the nearest first.
 
 - [ ] Create `web/src/trip/validate.ts` with `validateTrip(trip)` returning a list of `{legIndex, viaIndex, message}` for unknown names, only for enabled legs. Verification: `web/src/trip/validate.test.ts` covers an unknown name, a disabled leg with an unknown name (no error), and a valid trip (empty list).
 
@@ -60,6 +60,7 @@ Rules for every task:
 
 - Task 1 (reducer): state is `TripState = Trip & { error?: string }`, so `useReducer(tripReducer, trip)` works as written. A refused action returns the same trip with `error` set; any accepted action clears it. `tripOf(state)` strips `error` before sending to the API. Index fields are named `legIndex` / `viaIndex` (`moveVia` uses `from`/`to`).
 - Extra rules the spec implied: `renameStop` refuses an empty or already-taken name (it would silently merge two stops' references); `addStop` de-duplicates names ("New stop 2"); out-of-range indices are refused with `error`. Added a `setStopKind` action for the StopList kind select (task 7), which the action list did not name.
+- Task 2 (geo): `sortByDistance` is generic over anything with `at`; with `from` null it keeps the input order, and ties keep input order. `resolveVia` takes `Pick<Trip,'stops'>` so the combobox can pass just the stop list.
 
 ## Manual Follow-Up (not executed by Auto Run)
 
