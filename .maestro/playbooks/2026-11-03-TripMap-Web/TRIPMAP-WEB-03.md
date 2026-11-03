@@ -52,7 +52,7 @@ Rules for every task:
 
 - [x] Wire `web/src/App.tsx` so that `PhotosGate` wraps a `DateForm`. On a successful draft, store the returned `trip` in an `App` state variable and render a placeholder `<section data-testid="editor-placeholder">` showing the stop and leg counts from `stats`. Phase 04 replaces that placeholder. Verification: `web/src/App.test.tsx` mocks the client and checks the full flow: status ok, then the form, then a draft call, then the placeholder shows the counts.
 
-- [ ] Remove the Vite template's demo content (`App.css` contents, the logo assets) so the app shows only the gate and the form. Verification: `rg -l "vite.svg|react.svg" web/src` prints nothing.
+- [x] Remove the Vite template's demo content (`App.css` contents, the logo assets) so the app shows only the gate and the form. Verification: `rg -l "vite.svg|react.svg" web/src` prints nothing.
 
 - [ ] Run `cd web && npm test && npm run build`. Both must pass. Commit locally with `Add React shell with Photos check and date entry`. Do not push.
 
