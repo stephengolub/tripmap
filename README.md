@@ -11,10 +11,10 @@ land with a white coastline.
 - [Install](#install)
 - [Quick start](#quick-start)
 - [Commands](#commands)
-- [Web app](#web-app): a local browser editor for drafts, with render and photo preview
+- [Web app](#web-app): a browser editor for drafts, with render and photo preview
 - [Trip files](docs/trip-format.md): stops, legs, modes, basemaps
 - [How `draft` decides](docs/how-draft-works.md): overnights, stars, boats, trains, flights
-- [HTTP API](docs/api.md): the `tripmap-api` endpoints behind the web app
+- [HTTP API](docs/api.md): the `tripmap serve` endpoints behind the local web app
 - [Privacy and network use](#privacy-and-network-use)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
@@ -22,35 +22,30 @@ land with a white coastline.
 ## Requirements
 
 - **macOS**, with a Photos library that has GPS-tagged photos. The library is read from
-  `~/Pictures/Photos Library.photoslibrary` by default (`--library` overrides it).
-- **[uv](https://docs.astral.sh/uv/)** to install and run tripmap. Python 3.11 or newer
-  is fetched by uv if you don't have one.
-- **Google Chrome or Chromium**, used headless to rasterize the SVG into the PNG. It is found
-  at `/Applications/Google Chrome.app`, or on your PATH, or set with `TRIPMAP_CHROME`.
-- **ImageMagick** (`magick` on your PATH), only for `render --photo`.
+  `~/Pictures/Photos Library.photoslibrary` by default (`--library` or `TRIPMAP_LIBRARY`
+  overrides it). Only `draft` and `serve` read Photos; `render` works anywhere.
+- **Node.js 22.5 or newer**, which has `node:sqlite` built in. `npx` comes with it.
+- Nothing else. The SVG is rasterized with resvg, bundled with the package, so there is no
+  Chrome and no ImageMagick. The preview on a photo is saved as JPEG with macOS `sips`.
 - Internet access on the first run, for the basemap data and route lookups (see
   [Privacy and network use](#privacy-and-network-use)).
 
 ## Install
 
-From a checkout of this repository:
+Nothing to install: `npx tripmap ...` fetches the package on first use. To keep it on your
+PATH instead:
 
 ```sh
-git clone git@github.com:stephengolub/tripmap.git ~/code/tripmap
-uv tool install --editable ~/code/tripmap
+npm install -g tripmap
 tripmap --help
 ```
-
-`--editable` means edits under `src/tripmap/` take effect immediately, with no reinstall. To
-upgrade the dependencies later, run `uv tool upgrade tripmap`.
 
 ## Quick start
 
 ```sh
-tripmap trips --since 2024-01-01                           # find trips and their dates
-tripmap draft --from 2026-04-29 --to 2026-05-08 -o ireland.yaml
+npx tripmap draft --from 2026-04-29 --to 2026-05-08 -o ireland.yaml
 #   ...edit ireland.yaml: rename stops, hide a hop, fix a mode...
-tripmap render ireland.yaml --photo album-page.jpg         # -> ireland.png and a preview
+npx tripmap render ireland.yaml --photo album-page.jpg     # -> ireland.png and a preview
 ```
 
 `draft` writes a YAML file describing the route. `render` reads it and writes:
@@ -66,16 +61,6 @@ moving a leg from `drive` to `train`. Re-running `render` is cheap, since routes
 
 ## Commands
 
-### `tripmap trips`
-
-Lists trips found in the Photos library: runs of photos taken away from home.
-
-| Flag | Default | Meaning |
-|---|---|---|
-| `--since YYYY-MM-DD` | none | Only trips starting after this date. |
-| `--away-km N` | `150` | Distance from home that counts as being away. |
-| `--min-photos N` | `30` | Trips with fewer photos are not listed. |
-
 ### `tripmap draft`
 
 Detects the route for a date range and writes an editable trip file.
@@ -84,8 +69,9 @@ Detects the route for a date range and writes an editable trip file.
 |---|---|---|
 | `--from YYYY-MM-DD` | required | First day, inclusive. |
 | `--to YYYY-MM-DD` | required | Last day, inclusive. |
-| `-o, --output PATH` | `trip.yaml` | Where to write the trip file. |
+| `-o, --output PATH` | stdout | Where to write the trip file. |
 | `--title TEXT` | `Trip May 2 – May 8, 2024` | Title stored in the file. |
+| `--port P --token T` | none | Hand the YAML to the hosted page (see [Web app](#web-app)). Used together. |
 
 ### `tripmap render`
 
@@ -97,44 +83,72 @@ Draws a trip file as transparent PNG overlays.
 | `--photo PATH` | none | Background photo. Sets the canvas shape to match it and writes a preview. |
 | `--out DIR` | next to the YAML | Output folder. |
 | `--size N` | `4000` | Long side of the PNG, in pixels. |
+| `--day-trips` | off | Write only the with-day-trips PNG. |
+
+### `tripmap serve`
+
+Runs the local web app on `127.0.0.1` (see [Web app](#web-app)).
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--port P` | `8787` | Port to listen on. |
+
+### `tripmap trips`
+
+Planned: lists trips found in the Photos library (runs of photos taken away from home).
+The flags are parsed (`--since`, `--away-km`, `--min-photos`), but the TypeScript CLI does
+not implement the command yet and says so.
 
 ### Global
 
-`--library PATH` points at a different Photos library.
+`--library PATH` (on `draft`, `serve` and `trips`) points at a different Photos library.
+`--version` prints the version.
 
 ## Web app
 
-A browser editor over the same code: draft a trip from Photos, fix stops and legs on a
-map, render the PNG, and preview it over a photo. It is a local app for this Mac, not a
-hosted service.
+A browser editor over the same code: draft a trip from Photos, fix stops and legs on a map,
+render the PNG, and preview it over a photo. It comes in two modes.
+
+**Local mode** runs on your Mac:
 
 ```sh
-uv sync --all-extras       # once: installs FastAPI and uvicorn (the "web" extra)
-scripts/dev.sh             # API on 127.0.0.1:8000, app on http://localhost:5173
+npx tripmap serve          # http://127.0.0.1:8787
 ```
 
-`scripts/dev.sh` runs both servers in the foreground and stops both on Ctrl-C. It runs
-`npm install` at the repo root (npm workspaces) the first time. Open http://localhost:5173.
+Open http://127.0.0.1:8787. The **Detect** button drafts a date range from Photos, the
+same as `tripmap draft`; it takes tens of seconds.
+
+**Hosted mode** is a static page at https://stephengolub.github.io/tripmap/ (once GitHub
+Pages is turned on for the repository). It cannot read your Photos library, so it asks for
+the dates and gives you a command to paste into Terminal:
+
+```sh
+npx --yes tripmap@1.0.0 draft --from 2026-04-29 --to 2026-05-08 --port 51234 --token 3f9c0a1b2d4e6f70
+```
+
+The CLI drafts the trip on your Mac and then answers the page once, on `127.0.0.1`, to that
+port and token only, and only to the hosted page's origin. The page polls for up to 10
+minutes. If that does not work, paste the YAML the command printed into the page instead.
 
 **Photos needs Full Disk Access.** macOS blocks reading the Photos library until the app
-that started the server is allowed. Open **System Settings > Privacy & Security > Full Disk
+that started tripmap is allowed. Open **System Settings > Privacy & Security > Full Disk
 Access**, turn it on for your terminal app (Terminal, iTerm, or whatever ran
-`scripts/dev.sh`), then quit and reopen that app and start the script again. The web app
-checks this on load and says so when it is blocked. Opening a YAML file works without it;
-only drafting from Photos needs it.
+`tripmap serve` or `tripmap draft`), then quit and reopen that app and run the command
+again. The local web app checks this on load and says so when it is blocked. Opening a
+YAML file works without it; only drafting from Photos needs it.
 
 In the app:
 
-- **Draft** a date range, the same as `tripmap draft`. It takes tens of seconds.
 - **Edit** stops and legs. The map shows OpenStreetMap tiles.
-- **Render** draws the PNG at 1600 px, with a "Show day trips" toggle and a download link.
+- **Render** draws the PNG in the browser tab, with a "Show day trips" toggle and a
+  download link.
 - **Photo preview** composites the PNG over a photo you pick. The photo is read in the
   browser and never uploaded.
 - **Open YAML** and **Save YAML** load and save the same trip files the CLI uses.
 
-**Nothing is saved on the server.** The API is stateless: the trip lives in the browser
-tab and goes to the server in each request. Close the tab without saving YAML and the
-edits are gone. The server binds to `127.0.0.1` only and never logs coordinates or photo
+**Nothing is saved on the server.** `tripmap serve` is stateless: the trip lives in the
+browser tab and goes to the server in each request. Close the tab without saving YAML and
+the edits are gone. The server binds to `127.0.0.1` only and never logs coordinates or photo
 paths. The endpoints are in [docs/api.md](docs/api.md).
 
 ## Trip files
@@ -175,12 +189,11 @@ Place names come from data Photos already stores on your Mac.
 
 ## Troubleshooting
 
-**`Rendering needs Google Chrome or Chromium`** tripmap couldn't find a browser. Install
-Chrome, or point at an existing one: `export TRIPMAP_CHROME=/usr/bin/chromium`. The lookup
-order is `$TRIPMAP_CHROME`, then `/Applications/Google Chrome.app`, then `google-chrome`,
-`chromium` or `chromium-browser` on your PATH.
+**`render --photo` writes no preview.** The preview is saved as JPEG with macOS `sips`. If it
+is missing, the PNGs are still written and the log says the preview was skipped.
 
-**`--photo` fails with `magick: command not found`.** Install ImageMagick (`brew install imagemagick`).
+**`draft` says Photos cannot be read.** Give your terminal app Full Disk Access (see
+[Web app](#web-app)), then quit and reopen it.
 
 **A train leg is drawn as a smooth curve, not following the rails.** Its rail route was
 not found, so tripmap drew a smooth curve through its points in track style and logged
@@ -201,28 +214,30 @@ ones are retried.
 
 ## Development
 
-tripmap is a Python package in `src/`, packaged with uv. Dependencies and the dev
-environment are defined in `pyproject.toml`, with the exact resolved versions in `uv.lock`.
+tripmap is a TypeScript monorepo with npm workspaces. Node 22.5 or newer.
 
 ```sh
-uv sync            # create .venv with the dependencies and pytest
-uv run pytest      # run the test suite (no network, no Photos library needed)
-uv run tripmap --help
+npm install                # one install at the root covers every package
+npm run typecheck
+npm test                   # Vitest; no network, no Photos library needed
+npm run build
+scripts/dev.sh             # tripmap serve on 127.0.0.1:8787 plus Vite on http://localhost:5173
 ```
 
 Layout:
 
-- `src/tripmap/__init__.py`: the whole CLI. `cmd_draft` detects the route, `build_svg` draws it,
-  `cmd_render` writes the files.
-- `tests/`: unit tests. Network calls are stubbed and the cache is redirected to a temp
-  directory, so the suite is offline and leaves `~/.cache/tripmap` alone.
+- `packages/core/` (`@tripmap/core`): trip types, YAML, detection, geometry and `buildSvg`.
+  It runs in Node and in the browser. Node-only code (the Photos reader, resvg, the disk
+  cache, HTTP) is under `packages/core/src/node/`, which the browser never imports.
+- `packages/cli/` (`tripmap`, the npm package): the `tripmap` command, `serve`, and the
+  one-shot listener for hosted mode.
+- `packages/web/` (`@tripmap/web`): the Vite + React + TypeScript editor. `npm test -w
+  @tripmap/web` (Vitest) and `npm run test:e2e -w @tripmap/web` (Playwright; starts its own
+  servers and opens `examples/italy.yaml`).
 - `examples/`: real trip data and previews. See the note in `CLAUDE.md` about publishing.
-- `src/tripmap_api/`: the FastAPI app behind the web app.
-- `packages/web/`: the Vite + React + TypeScript front end. `npm test` (Vitest) and
-  `npm run test:e2e` (Playwright; starts both servers itself).
 - `scripts/dev.sh`: runs the web app locally.
-- `docs/`: the trip-file reference, the detection rules, and the HTTP API.
+- `docs/`: the trip-file reference, the detection rules, the HTTP API, and the parity report
+  against the retired Python version (`docs/parity.md`).
 
-Not covered by tests yet: the detection logic inside `cmd_draft` (it is nested, so it can't
-be called on its own), the full SVG render, and the Photos database reader. The `examples/`
-drafts and previews are the regression check for those.
+The Python implementation was retired once the TypeScript version passed the parity gate.
+Git history still has it.

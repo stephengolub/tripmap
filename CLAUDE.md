@@ -1,59 +1,71 @@
 # tripmap
 
-Python package (`src/tripmap/`, the CLI, one module: `src/tripmap/__init__.py`) that turns a trip in Stephen's macOS Photos library
-into a transparent PNG route map to lay over an album photo. Usage is in `README.md`; the
-trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how-draft-works.md`.
+TypeScript npm-workspaces monorepo that turns a trip in Stephen's macOS Photos library into a
+transparent PNG route map to lay over an album photo. Usage is in `README.md`; the trip-file
+reference is `docs/trip-format.md`, how draft decides is `docs/how-draft-works.md`, and the
+local server's endpoints are in `docs/api.md`. The Python version was retired after the parity
+gate (`docs/parity.md`); git history keeps it.
 
-## Packaging and tests (uv)
+## Packages, build and tests (npm workspaces)
 
-- `pyproject.toml` is the source of truth for dependencies (pyyaml, shapely) and the dev group
-  (pytest). `uv.lock` is committed. Do not reintroduce `# /// script` inline metadata.
-- Installed with `uv tool install --editable ~/code/tripmap`, which puts `tripmap` on
-  `~/.local/bin`. It is an editable install, so source edits apply without reinstalling.
-  Changing the dependencies needs `uv lock` and `uv sync`, then `uv tool upgrade tripmap`.
-- Chrome is the SVG rasterizer, not a runtime dependency: `find_chrome()` checks
-  `$TRIPMAP_CHROME`, then the macOS app, then PATH. Keep it that way; don't hardcode a path.
-- `uv run pytest` runs `tests/` offline. The network-facing tests stub `urllib` and redirect
-  `tripmap.CACHE` to a temp directory via the `cache` fixture in `tests/conftest.py`. Add
-  new HTTP-touching code under the same stubs.
-- `packages/web/` (`@tripmap/web`) is the Vite + React + TypeScript front end (Leaflet map). Node is the asdf 22.14.0
-  install. `cd packages/web && npm test` (Vitest, offline, mocks the API client) and `npm run build`.
-  It reaches `tripmap-api` only through the dev server's `/api` proxy; the trip lives in
-  browser state, never on the server.
-- `cd packages/web && npm run test:e2e` (Playwright) starts both servers from `packages/web/playwright.config.ts`
-  and opens `examples/italy.yaml`, so it needs no network or Photos access, but render needs
-  Chrome. `scripts/dev.sh` runs the web app locally (needs `uv sync --all-extras` once).
-- Not unit-tested: the nested detection logic in `cmd_draft`, the full SVG render, and the
-  Photos reader. `examples/` is the regression check for those.
+- Root `package.json` has `"workspaces": ["packages/*"]`. Node 22.5 or newer (`node:sqlite`).
+  Locally Node is the asdf install at `/Users/sgolub/.asdf/installs/nodejs/22.14.0/bin/`;
+  put it on PATH when `npm` is not. Node 22.14 prints an ExperimentalWarning for
+  `node:sqlite`; run scripts with `--no-warnings`.
+- `packages/core` (`@tripmap/core`): types, YAML, detection, geometry, `buildSvg`. It must run
+  in Node AND the browser. Node-only code lives under `packages/core/src/node/` (Photos reader,
+  resvg rasterizer, disk cache, HTTP); the browser bundle never imports from it.
+- `packages/cli` (`tripmap`, the npm package and `bin`, version in its `package.json`):
+  `draft`, `render`, `serve`, and the one-shot hosted-mode listener. `trips` is parsed but not
+  implemented yet.
+- `packages/web` (`@tripmap/web`): Vite + React + TypeScript editor with a Leaflet map.
+- From the root: `npm install`, `npm run typecheck`, `npm test` (Vitest, offline; network
+  calls are stubbed and the cache is redirected), `npm run build`. Add new HTTP-touching code
+  under the same stubs.
+- `npm run test:e2e -w @tripmap/web` (Playwright) starts its servers from
+  `packages/web/playwright.config.ts` and opens `examples/italy.yaml`, so it needs no network
+  or Photos access. `scripts/dev.sh` runs `tripmap serve` on 8787 plus Vite on 5173.
+- Rendering: `buildSvg` makes the SVG. Node rasterizes it with `@resvg/resvg-js`; the browser
+  rasterizes it on a canvas. No Chrome, no ImageMagick. The `--photo` preview JPEG uses macOS
+  `sips`, and is skipped with a notice when that is missing.
+- Not unit-tested end to end: the full detection run over a real library, and the full
+  render. `examples/` is the regression check for those.
 
-- `tripmap trips [--since DATE]`: list trips found in Photos.
-- `tripmap draft --from DATE --to DATE -o trip.yaml`: detect the route, write an editable YAML.
-- `tripmap render trip.yaml --photo bg.jpg`: draw the PNG(s) plus a preview composited on
-  the photo. Headless Chrome rasterizes the SVG.
+- `npx tripmap draft --from DATE --to DATE -o trip.yaml`: detect the route, write an editable
+  YAML (stdout without `-o`).
+- `npx tripmap render trip.yaml --photo bg.jpg`: draw the PNG(s) plus a preview composited on
+  the photo.
+- `npx tripmap serve [--port 8787]`: the local web app on `127.0.0.1`.
+- Hosted page: https://stephengolub.github.io/tripmap/ (built by `.github/workflows/pages.yml`
+  with `VITE_MODE=hosted`, base path `/tripmap/`).
 
 ## Web app architecture (don't change without recording why)
 
-- Layout: new Python code goes under `src/`, never at the repo root. The core package is
-  `src/tripmap/`; the API is a second package, `src/tripmap_api/` (FastAPI, the `web` extra).
-  Tests are in `tests/`, the front end in `packages/web/`, scripts in `scripts/`. Endpoints are
+- Layout: all code is TypeScript under `packages/`. Scripts are in `scripts/`. Endpoints are
   documented in `docs/api.md`.
-- Front end: Vite + React + TypeScript, Leaflet via react-leaflet, OpenStreetMap raster
-  tiles from `https://tile.openstreetmap.org/{z}/{x}/{y}.png` with the attribution
+- Two modes. **Local:** `tripmap serve` serves the built app and `GET /api/photos/status`,
+  `POST /api/detect`, `POST /api/yaml`. Default port 8787 (not 8000). **Hosted:** a static
+  GitHub Pages build that shows a date form, then generates
+  `npx --yes tripmap@<VERSION> draft --from A --to B --port P --token T` (P random in
+  49152–65535, T 16 random hex characters) and polls `http://127.0.0.1:P/trip?token=T` every
+  1.5 s for up to 10 minutes. The CLI's listener answers once and closes. A paste box is the
+  fallback.
+- The listener allows only the origins `https://stephengolub.github.io` and
+  `http://localhost:5173`. `tripmap serve` allows CORS from `http://localhost:5173` only and
+  rejects any `Host` other than `127.0.0.1`/`localhost`.
+- Front end: Leaflet via react-leaflet, OpenStreetMap raster tiles from
+  `https://tile.openstreetmap.org/{z}/{x}/{y}.png` with the attribution
   `© OpenStreetMap contributors`. Never prefetch or bulk-download tiles.
 - **The server is stateless.** It keeps no session, no trip, and no per-user state. The
   browser owns the trip document and sends it in each request body. Disk caches under
   `~/.cache/tripmap` are allowed because they are caches, not state. The background photo
-  for the preview never leaves the browser.
-- The API binds to `127.0.0.1` only and allows CORS from `http://localhost:5173` only.
+  for the preview never leaves the browser. Render and photo preview run in the browser tab.
+- Everything binds to `127.0.0.1` only.
 - **Never log coordinates, photo paths, or photo contents.** Route coordinates are personal
   location data. Logs may say counts and status codes.
 - Trip JSON uses the trip YAML's field names plus an `enabled` boolean per leg (default
   true). A disabled leg is written as a commented-out YAML line.
-- Endpoints doing blocking work (draft calls Overpass, OSRM, BRouter for tens of seconds)
-  are plain `def`, so FastAPI runs them in its threadpool.
 - Any server-side HTTP call sets a descriptive User-Agent.
-- Node is the absolute asdf path `/Users/sgolub/.asdf/installs/nodejs/22.14.0/bin/` when
-  `npm` is not on PATH.
 
 ## Key decisions (the reasons matter)
 
@@ -77,7 +89,7 @@ trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how
   - BRouter (brouter.de, `profile=rail`): train geometry. Points must be within ~1 km
     of a track, so named stops snap to their nearest station first. A "no track"
     answer is cached; network errors are not.
-- **Train detection** (`by_train` in draft): land-to-land, 25–700 km, a rail route no
+- **Train detection** (`byTrain` in `packages/core/src/trains.ts`): land-to-land, 25–700 km, a rail route no
   longer than 1.6x the straight line, and either a 140–330 km/h photo-to-photo speed or
   departure and arrival photos both within 400 m of a station. Anything near an airport
   is excluded. Train mode then spreads across in-between route-hint photos.
@@ -92,10 +104,12 @@ trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how
 ## Regression set
 
 `examples/` holds the drafts and previews. It contains Stephen's real trip data (GPS points,
-dates, San Antonio as home in `pnw.yaml`); he approved committing it. **If the repo is ever
-made public, remind him once that this data is in it.**
+dates, San Antonio as home in `pnw.yaml`); he approved committing it. **The repository is
+public, so this GPS data is public too. Remind him once that this data is in it.** Do not add
+more real trip data anywhere in the repo: test fixtures are synthetic, and scratch output goes
+under `~/.cache/tripmap/` or `/tmp`.
 
-- **Ireland:** `tripmap draft --from 2026-04-29 --to 2026-05-08`. Expect overnights
+- **Ireland:** `npx tripmap draft --from 2026-04-29 --to 2026-05-08`. Expect overnights
   Dublin(3), Killarney(2), Dingle(1), Galway(3); 2 day-trip days; boat legs only on May 5
   (Aran Islands); basemap `island`.
 - **Alaska cruise:** `--from 2024-09-18 --to 2024-09-30`. Expect Seattle(3), Victoria(1);
