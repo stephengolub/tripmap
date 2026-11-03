@@ -1,0 +1,27 @@
+.trip-map {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.trip-map-canvas {
+  height: 32rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.trip-map-adding .trip-map-canvas {
+  cursor: crosshair;
+}
+
+.trip-map-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* divIcon markers: drop Leaflet's default white box. */
+.trip-marker {
+  background: none;
+  border: 0;
+}
