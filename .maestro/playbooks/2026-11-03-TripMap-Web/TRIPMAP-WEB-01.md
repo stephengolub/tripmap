@@ -44,7 +44,7 @@ Rules for every task:
 
 - [x] Add `tests/test_classify.py` covering `classify_hop`: a 900 km hop returns `flight`, a 60 km land hop with a drivable route returns `drive`, and two sea-level nodes return `boat`. Build the `Node` objects directly and stub `drivable` and `geo` where needed. Verification: `uv run pytest -q` passes.
 
-- [ ] Run `uv run pytest -q` and `uv run tripmap --help`. Both must succeed. Commit locally with the message `Extract build_trip, dump_trip_yaml and render_png from the CLI`. Do not push.
+- [x] Run `uv run pytest -q` and `uv run tripmap --help`. Both must succeed. Commit locally with the message `Extract build_trip, dump_trip_yaml and render_png from the CLI`. Do not push.
 
 ## Notes
 
@@ -114,6 +114,11 @@ Caveat for the `cmp` checks in later tasks: during the Ireland baseline the Over
 - Gotcha: `classify_hop` checks `a.t and b.t`, so a timestamp of `0` is falsy and skips the speed rule. The test uses realistic epoch values.
 - Verified: `uv run pytest -q` 55 passed.
 
+### Phase wrap-up (2026-11-03, task 9)
+
+- `uv run pytest -q`: 55 passed. `uv run tripmap --help`: exit 0.
+- Each earlier task was already committed on its own (Maestro runs commit per task), so the working tree was clean. This commit carries only the checked-off playbook, under the requested message `Extract build_trip, dump_trip_yaml and render_png from the CLI`. Not pushed.
+
 ## Manual Follow-Up (not executed by Auto Run)
 
-- Skim `git diff HEAD~1 -- src/tripmap/__init__.py` and confirm the moved code reads well.
+- Skim `git diff a1f11a4 a3c0bfc -- src/tripmap/__init__.py` (the phase's code commits) and confirm the moved code reads well.
