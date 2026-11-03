@@ -16,5 +16,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // e2e/ is Playwright's (npx playwright test), not Vitest's.
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 })
