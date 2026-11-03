@@ -14,7 +14,7 @@ modified). Place names come from OpenStreetMap (Nominatim + Overpass) using
 rounded coordinates; road shapes come from the public OSRM router.
 """
 import argparse, datetime as dt, hashlib, json, math, os, re, shutil, sqlite3, subprocess
-import plistlib, sys, tempfile, time, urllib.parse, urllib.request
+import plistlib, sys, tempfile, time, urllib.error, urllib.parse, urllib.request
 from pathlib import Path
 
 import yaml
@@ -36,6 +36,10 @@ BASE_MERGE_KM = 10        # overnight spots this close are the same base
 NEAR_BASE_KM = 3          # stops this close to a base are just "in town"
 WAYPOINT_KM = 12          # spacing of in-between photo points kept as route hints
 SEA_KM = 0.6              # a photo this far off the coastline was taken on the water
+TRAIN_KMH = (140, 330)    # land-to-land photo speeds no car manages, but a train does
+STATION_KM = 0.4          # a departure/arrival photo this close to a station counts as at the station
+STATION_NAME = re.compile(r"\b(rail(way)? station|train station|bahnhof|hauptbahnhof|hbf|stazione|"
+                          r"termini|estaci[oó]n de tren)\b", re.I)
 
 
 def km(a, b):
@@ -249,13 +253,8 @@ class OSM:
            '[natural~"^(beach|cliff|peak|bay|cave_entrance|waterfall|glacier|arch|volcano)$"]',
            '[leisure~"^(park|garden|nature_reserve)$"]', '[boundary=national_park]']
 
-    def landmarks(self, spots):
-        """[(lat, lon)] -> [name or None], one batched Overpass request (coords rounded to ~100 m).
-        Best effort: if every mirror fails, returns Nones and the draft carries on."""
-        if not spots:
-            return []
-        spots = [(round(a, 3), round(b, 3)) for a, b in spots]
-        body = "".join(f"nwr(around:500,{a},{b})[name]{f};" for a, b in spots for f in self.POI)
+    def _overpass(self, body, what):
+        """Elements for an Overpass union body, cached. Best effort: [] if every mirror fails."""
         query = f"[out:json][timeout:90];({body});out tags center;"
         key = "overpass:" + hashlib.sha1(query.encode()).hexdigest()
         res = self.cache.get(key)
@@ -264,12 +263,23 @@ class OSM:
                 req = urllib.request.Request(url, data=("data=" + urllib.parse.quote(query)).encode(),
                                              headers={"User-Agent": UA})
                 res = json.load(urllib.request.urlopen(req, timeout=100))
+                if res.get("remark") and not res.get("elements"):  # e.g. a timeout, reported with HTTP 200
+                    raise RuntimeError(res["remark"][:120])
                 self.cache[key] = res
                 json.dump(self.cache, open(self.path, "w"))
                 break
             except Exception as e:  # noqa: BLE001 - next mirror
-                log(f"  landmark lookup via {urllib.parse.urlparse(url).netloc} failed: {e}")
-        els = (res or {}).get("elements", [])
+                log(f"  {what} lookup via {urllib.parse.urlparse(url).netloc} failed: {e}")
+        return (res or {}).get("elements", [])
+
+    def landmarks(self, spots):
+        """[(lat, lon)] -> [name or None], one batched Overpass request (coords rounded to ~100 m).
+        Best effort: if every mirror fails, returns Nones and the draft carries on."""
+        if not spots:
+            return []
+        spots = [(round(a, 3), round(b, 3)) for a, b in spots]
+        els = self._overpass("".join(f"nwr(around:500,{a},{b})[name]{f};" for a, b in spots for f in self.POI),
+                             "landmark")
         out = []
         for ll in spots:
             best, best_score = None, 1e9
@@ -287,6 +297,17 @@ class OSM:
             out.append(best)
         return out
 
+    def stations(self, spots, radius_km=3):
+        """Railway stations within radius_km of any of [(lat, lon)] (coords rounded to ~100 m),
+        one batched Overpass request -> Stations. Best effort: empty if every mirror fails."""
+        spots = sorted({(round(a, 3), round(b, 3)) for a, b in spots})
+        if not spots:
+            return Stations([])
+        f = '[railway~"^(station|halt)$"][station!~"^(subway|light_rail|monorail|funicular|miniature)$"]'
+        els = self._overpass("".join(f"node(around:{radius_km * 1000:.0f},{a},{b}){f};" for a, b in spots),
+                             "station")
+        return Stations([(e["lat"], e["lon"], e["tags"].get("railway") == "halt") for e in els if "lat" in e])
+
     def town_centre(self, name, cc, near):
         """Town-centre coordinates by searching the town NAME (no coordinates are sent)."""
         q = urllib.parse.urlencode(dict(format="jsonv2", q=name, countrycodes=(cc or "").lower(), limit=8,
@@ -298,6 +319,17 @@ class OSM:
         h = min(hits, key=lambda h: (h.get("addresstype") not in ("city", "town", "village"),
                                      km((float(h["lat"]), float(h["lon"])), near)))
         return (round(float(h["lat"]), 4), round(float(h["lon"]), 4))
+
+
+class Stations:
+    def __init__(self, pts):
+        self.pts = pts  # [(lat, lon, is_halt)]
+
+    def nearest(self, ll, max_km):
+        """Closest station to ll within max_km (a minor halt counts as 800 m further), or None."""
+        near = [(km(ll, (a, b)), halt, (a, b)) for a, b, halt in self.pts]
+        best = min(((d + 0.8 * halt, s) for d, halt, s in near if d < max_km), default=None)
+        return best[1] if best else None
 
 
 # ---------------------------------------------------------------- trips
@@ -343,8 +375,9 @@ def cmd_trips(args):
 # ---------------------------------------------------------------- draft
 
 class Node:
-    def __init__(self, kind, lat, lon, t=None, ref=None, sea=False):
+    def __init__(self, kind, lat, lon, t=None, ref=None, sea=False, raw=None):
         self.kind, self.lat, self.lon, self.t, self.ref, self.sea = kind, lat, lon, t, ref, sea
+        self.t0, self.raw0, self.raw = t, raw, raw  # first and latest photo here (arrival / departure)
 
     @property
     def ll(self):
@@ -495,16 +528,42 @@ def cmd_draft(args):
             unique, i = f"{name} ({i})", i + 1
         names.add(unique)
         airport = bool(re.search(r"\bairport\b|\bterminal\b|\baeroport|\baeropuerto|\bflughafen", name, re.I))
+        station = bool(STATION_NAME.search(name))
         brief = len(c["pts"]) < 8 and c["t1"] - c["t0"] < 1200
         x = dict(name=unique, at=(round(c["lat"], 4), round(c["lon"], 4)),
-                 kind="hidden" if airport or brief else "minor", photos=len(c["pts"]),
+                 kind="hidden" if airport or station or brief else "minor", photos=len(c["pts"]),
                  when=dt.datetime.fromtimestamp(c["t0"]).strftime("%b %-d"),
-                 note="airport" if airport else "brief stop" if brief else None)
+                 note="airport" if airport else "station" if station else "brief stop" if brief else None)
         stops.append(x)
         c["ref"] = x
     for c in clusters:
         if c["stop"] and "ref" not in c:
             c["ref"] = near_base((c["lat"], c["lon"]))
+
+    # railway stations near stops and overnight spots, for spotting train legs
+    log("looking up railway stations...")
+    stations = osm.stations([(c["lat"], c["lon"]) for c in clusters if c["stop"]] + [b["raw"] for b in bases])
+
+    airports = [s["at"] for s in stops if s.get("note") == "airport"]
+
+    def is_airport(n):
+        return bool(n.ref and n.ref.get("note") == "airport") or any(km(n.ll, a) < 5 for a in airports)
+
+    def by_train(a, b):
+        """Is a -> b a train ride? Needs a rail route, plus a speed no car manages or a
+        departure and arrival photographed at stations."""
+        if a.sea or b.sea or is_airport(a) or is_airport(b):
+            return False
+        dist = km(a.ll, b.ll)
+        if dist < 25 or dist > 700:
+            return False
+        fast = a.t and b.t0 and dist > 40 and TRAIN_KMH[0] < dist / max((b.t0 - a.t) / 3600, 0.1) < TRAIN_KMH[1]
+        at_stations = all(n.raw and stations.nearest(n.raw if n is a else n.raw0, STATION_KM) for n in (a, b))
+        if not (fast or at_stations):
+            return False
+        ends = [stations.nearest(n.raw or n.ll, 3) or n.ll for n in (a, b)]
+        path = rail(ends)
+        return bool(path) and sum(km(p, q) for p, q in zip(path, path[1:])) < 1.6 * dist + 20
 
     # 4. per-day node sequences
     first_day, last_day = dates[0], dates[-1]
@@ -524,17 +583,21 @@ def cmd_draft(args):
             c = p["cluster"]
             switch = (i > 0 and day[i - 1]["sea"] != p["sea"]) or (i + 1 < len(day) and day[i + 1]["sea"] != p["sea"])
             if c.get("ref"):
-                node = Node("stop", *c["ref"]["at"], t=p["t"], ref=c["ref"])
+                node = Node("stop", *c["ref"]["at"], t=p["t"], ref=c["ref"], raw=(p["lat"], p["lon"]))
             elif p["sea"]:
                 node = Node("sea", p["lat"], p["lon"], t=p["t"], sea=True)
                 if seq and seq[-1].kind == "sea" and km(seq[-1].ll, node.ll) < 1.5:
                     continue
             else:
                 if seq and not switch and km(seq[-1].ll, (p["lat"], p["lon"])) < WAYPOINT_KM:
+                    if seq[-1].ref is not None:  # a stray photo in town, e.g. at the station on the way out
+                        seq[-1].raw = (p["lat"], p["lon"])
                     continue
-                node = Node("shore" if switch else "way", p["lat"], p["lon"], t=p["t"])
+                node = Node("shore" if switch else "way", p["lat"], p["lon"], t=p["t"], raw=(p["lat"], p["lon"]))
             if seq and node.ref is not None and seq[-1].ref is node.ref:
-                seq[-1].t = node.t
+                seq[-1].t, seq[-1].raw = node.t, node.raw
+                if seq[-1].t0 is None:
+                    seq[-1].t0, seq[-1].raw0 = node.t, node.raw
                 continue
             seq.append(node)
         if end_base and not (seq and seq[-1].ref is end_base):
@@ -553,6 +616,8 @@ def cmd_draft(args):
         # 5. segment modes, merged into legs
         def mode(a, b):
             dist = km(a.ll, b.ll)
+            if by_train(a, b):
+                return "train"
             if a.t and b.t and dist > 200 and dist / max((b.t - a.t) / 3600, 0.1) > 130:
                 return "flight"
             if dist > 900:
@@ -569,9 +634,18 @@ def cmd_draft(args):
                 return "flight" if dist > 80 else "boat"
             return "drive"
 
+        modes = [mode(a, b) for a, b in zip(seq, seq[1:])]
+        # photos taken from the train are only route hints: the hops either side of one ride the train too
+        for _ in range(len(modes)):
+            changed = False
+            for i in range(len(modes) - 1):
+                if seq[i + 1].kind == "way" and {modes[i], modes[i + 1]} == {"train", "drive"}:
+                    modes[i] = modes[i + 1] = "train"
+                    changed = True
+            if not changed:
+                break
         day_legs = []
-        for a, b in zip(seq, seq[1:]):
-            m = mode(a, b)
+        for a, b, m in zip(seq, seq[1:], modes):
             if day_legs and day_legs[-1]["mode"] == m:
                 day_legs[-1]["via"].append(b)
             else:
@@ -620,7 +694,8 @@ def cmd_draft(args):
          "# stops: kind = major (red pin) | minor (gold star) | hidden (route passes, no marker)",
          "#        label = auto | n | s | e | w | ne | nw | se | sw | none",
          "#        rename freely; legs refer to stops by name, so rename in both places",
-         "# legs:  mode = drive (real roads) | boat (dashed, ship icon) | flight (dashed arc, plane icon)",
+         "# legs:  mode = drive (real roads) | train (real rail lines, train icon) | boat (dashed, ship icon)",
+         "#               | flight (dashed arc, plane icon)",
          "#        via = stop names or [lat, lon] route hints, in travel order",
          "#        day_trip: true legs are left out of the plain version and drawn in",
          "#        the \"-with-day-trips\" version",
@@ -732,6 +807,56 @@ def drivable(a, b):
     total = sum(length(p) for _, p in pieces)
     ferry = sum(length(p) for m, p in pieces if m == "ferry")
     return total < 2.5 * km(a, b) + 20 and ferry < 0.4 * total
+
+
+def rail(coords):
+    """[(lat, lon), ...] along railway lines through coords (BRouter's rail profile), or None.
+    Points must sit within about a kilometre of a track: snap towns to their station first."""
+    cs = "|".join(f"{lon:.4f},{lat:.4f}" for lat, lon in coords)
+    path = CACHE / "rail" / (hashlib.sha1(cs.encode()).hexdigest() + ".json")
+    if path.exists():
+        data = json.load(open(path))
+    else:
+        url = ("https://brouter.de/brouter?" + urllib.parse.urlencode(
+            dict(lonlats=cs, profile="rail", alternativeidx=0, format="geojson")))
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            data = json.load(urllib.request.urlopen(req, timeout=90))
+        except urllib.error.HTTPError as e:  # BRouter answers "no track found" as an HTTP error
+            msg = e.read().decode(errors="replace")[:200]
+            if "no track" not in msg:
+                log(f"  rail routing failed ({e.code}: {msg.strip()})")
+                return None
+            data = {"error": msg}
+        except Exception as e:  # noqa: BLE001 - network trouble: don't cache, just give up on this one
+            log(f"  rail routing failed ({e})")
+            return None
+        path.parent.mkdir(parents=True, exist_ok=True)
+        json.dump(data, open(path, "w"))
+        time.sleep(1.0)
+    try:
+        return [(la, lo) for lo, la, *_ in data["features"][0]["geometry"]["coordinates"]]
+    except (KeyError, IndexError, TypeError):
+        return None
+
+
+def train_route(ll, named, stations):
+    """Rail path for a train leg: named stops snap to their nearest station, [lat, lon] hints
+    (photos from the train) are routed through as-is, dropped if they won't route. Falls back
+    to a smooth line through the via points, and says so."""
+    snapped = [stations.nearest(p, 5) or p if is_name else p for p, is_name in zip(ll, named)]
+    path = rail(snapped)
+    if path is None and len(ll) > 2:
+        keep = [p for p, is_name in zip(snapped, named) if is_name] or [snapped[0], snapped[-1]]
+        if keep[0] != snapped[0]:
+            keep.insert(0, snapped[0])
+        if keep[-1] != snapped[-1]:
+            keep.append(snapped[-1])
+        path = rail(keep) if len(keep) > 1 else None
+    if path is None:
+        log(f"  no rail line found from {ll[0]} to {ll[-1]}; drawing the train leg as a smooth line")
+        return list(ll), False
+    return [ll[0]] + path + [ll[-1]], True
 
 
 # ---------------------------------------------------------------- render
@@ -925,6 +1050,12 @@ def badge_svg(x, y, r, kind, angle=0):
     <rect x="-2" y="-8" width="6" height="6" fill="#FFFFFF"/>
     <rect x="14" y="-26" width="9" height="30" rx="2" fill="{PIN}"/>
     <path d="M-38,32 q9.5,-8 19,0 t19,0 t19,0 t19,0" fill="none" stroke="{NAVY}" stroke-width="5" stroke-linecap="round"/>'''
+    elif kind == "train":
+        glyph = f'''<rect x="-25" y="-36" width="50" height="54" rx="13"/>
+    <rect x="-17" y="-26" width="34" height="18" rx="3" fill="#FFFFFF"/>
+    <circle cx="-12" cy="6" r="4.5" fill="#FFFFFF"/>
+    <circle cx="12" cy="6" r="4.5" fill="#FFFFFF"/>
+    <path d="M-13,20 L-23,34 M13,20 L23,34 M-31,34 L31,34" fill="none" stroke="{NAVY}" stroke-width="6" stroke-linecap="round"/>'''
     else:
         glyph = (f'<path transform="rotate({angle:.1f})" d="M0,-34 C5,-34 6,-29 6,-22 L6,-8 L36,8 L36,15 L6,6 '
                  f'L6,22 L15,29 L15,34 L0,30 L-15,34 L-15,29 L-6,22 L-6,6 L-36,15 L-36,8 L-6,-8 L-6,-22 '
@@ -1029,7 +1160,10 @@ def build_svg(trip, W, H, with_day_trips, geo):
                   f'stroke-opacity="0.9" stroke-width="{6 * u:.1f}" stroke-linejoin="round" filter="url(#soft)"/></g>')
 
     # route geometry
-    roads, ferries, boats, flights, route_pts = [], [], [], [], []
+    roads, ferries, boats, trains, flights, route_pts = [], [], [], [], [], []
+    train_legs = [l for l in legs if l.get("mode") == "train"]
+    stations = OSM().stations([resolve(v) for l in train_legs for v in l["via"] if isinstance(v, str)], 5) \
+        if train_legs else None
     for l in legs:
         ll = [resolve(v) for v in l["via"]]
         m = l.get("mode", "drive")
@@ -1042,12 +1176,16 @@ def build_svg(trip, W, H, with_day_trips, geo):
             for a, b in zip(ll, ll[1:]):
                 path += sea_route(geo, a, b)[1:]
             boats.append([P(*p) for p in path])
+        elif m == "train":
+            path, on_rails = train_route(ll, [isinstance(v, str) for v in l["via"]], stations)
+            xy = [P(*p) for p in path]
+            trains.append((thin(xy, 1.5 * u) if on_rails else xy, on_rails))
         elif m == "flight":
             for a, b in zip(ll, ll[1:]):
                 flights.append((P(*a), P(*b)))
         else:
-            sys.exit(f"unknown leg mode '{m}' (use drive, boat or flight)")
-    for group in (roads, ferries, boats):
+            sys.exit(f"unknown leg mode '{m}' (use drive, train, boat or flight)")
+    for group in (roads, ferries, boats, [xy for xy, _ in trains]):
         for xy in group:
             route_pts += thin(xy, 20 * u)
 
@@ -1066,27 +1204,37 @@ def build_svg(trip, W, H, with_day_trips, geo):
                       for t in (i / 20 for i in range(21))]
     arc_d = [f"M{a[0]:.1f},{a[1]:.1f} Q{c[0]:.1f},{c[1]:.1f} {b[0]:.1f},{b[1]:.1f}" for a, c, b in arcs]
     boat_d = [smooth_d(b) for b in boats]
+    train_d = [line_d(xy) if on_rails else smooth_d(xy) for xy, on_rails in trains]
     dash = f'stroke-dasharray="{36 * u:.1f} {30 * u:.1f}"'
     dots = f'stroke-dasharray="{1 * u:.1f} {34 * u:.1f}"'
+    ties = f'stroke-width="{lw * 1.9:.1f}" stroke-dasharray="{5 * u:.1f} {25 * u:.1f}" stroke-linecap="butt"'
 
     parts_.append(f'<g {attrs} {shadow} stroke-width="{lw + 14 * u:.1f}">')
     parts_ += [f'<path d="{line_d(r)}"/>' for r in roads]
+    parts_ += [f'<path d="{d}"/>' for d in train_d]
     parts_ += [f'<path d="{d}" {dash}/>' for d in boat_d + arc_d]
     parts_.append("</g>")
     parts_.append(f'<g {attrs} stroke="#FFFFFF" stroke-width="{lw:.1f}">')
     parts_ += [f'<path d="{line_d(r)}"/>' for r in roads]
     parts_ += [f'<path d="{line_d(r)}" {dots}/>' for r in ferries]
+    parts_ += [f'<path d="{d}" {ties}/><path d="{d}" stroke-width="{lw * 0.6:.1f}"/>' for d in train_d]
     parts_ += [f'<path d="{d}" {dash}/>' for d in boat_d + arc_d]
     parts_.append("</g>")
 
     labeler = Labeler(W, H, route_pts)
     icons, icon_at = [], []
-    for b in boats:
-        (x, y), length = midpoint(b)
-        if length > 140 * u and all(math.dist((x, y), q) > 260 * u for q in icon_at):
-            icon_at.append((x, y))
-            icons.append(badge_svg(x, y, 58 * u, "boat"))
-            labeler.block((x - 60 * u, y - 60 * u, x + 60 * u, y + 60 * u))
+    badged = []  # train lines already carrying a badge: legs sharing a line get one between them
+    for kind, paths in (("boat", boats), ("train", [xy for xy, _ in trains])):
+        for b in paths:
+            (x, y), length = midpoint(b)
+            if kind == "train" and any(math.dist((x, y), q) < 40 * u for q in badged):
+                continue
+            if length > 140 * u and all(math.dist((x, y), q) > 260 * u for q in icon_at):
+                icon_at.append((x, y))
+                icons.append(badge_svg(x, y, 58 * u, kind))
+                labeler.block((x - 60 * u, y - 60 * u, x + 60 * u, y + 60 * u))
+                if kind == "train":
+                    badged += thin(b, 10 * u)
     for a, c, b in arcs:
         x, y = 0.25 * a[0] + 0.5 * c[0] + 0.25 * b[0], 0.25 * a[1] + 0.5 * c[1] + 0.25 * b[1]
         ang = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0])) + 90

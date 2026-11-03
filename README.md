@@ -2,8 +2,9 @@
 
 Turns a trip in your Photos library into a transparent route-map PNG to lay over
 an album photo. Same look as the Ireland 2026 map: white roads, red pins for
-overnight stops, gold stars for quick stops, dashed boat legs with a ship icon,
-dashed flight arcs with a plane icon, navy land with a white coastline.
+overnight stops, gold stars for quick stops, railway-track train legs with a train
+icon, dashed boat legs with a ship icon, dashed flight arcs with a plane icon, navy
+land with a white coastline.
 
 ```sh
 tripmap trips --since 2024-01-01                          # find trips and their dates
@@ -26,6 +27,11 @@ versions: `<name>.png` and `<name>-with-day-trips.png`.
 - **Boat legs:** photos Apple places on water, or coastal photos far from any road.
   Port-to-port hops with no sensible road (cruises, island ferries) also count.
   Boat paths bend around headlands.
+- **Train legs:** land hops faster than any car (140–330 km/h between photos), or
+  a departure and arrival both photographed at railway stations, provided a real
+  rail line connects them. Drawn along the actual tracks, station to station.
+  Train rides with no photos at either station come out as drives: switch them
+  to `mode: train` by hand.
 - **Flights:** big jumps too fast to drive, or between landmasses. Flights at the
   very start and end (getting there and home) are written commented out.
 - **Day trips:** days that start and end at the same overnight stop.
@@ -38,5 +44,7 @@ Photos are read from a temp copy of the library database, never modified.
 Place names come from data Photos already stores on your Mac. Network calls:
 town *names* to Nominatim (to put pins at town centres); quick stops without an
 Apple point of interest, rounded to ~100 m, to Overpass; and route points,
-rounded to ~100 m, to the public OSRM router. Lookups are cached in
+rounded to ~100 m, to the public OSRM router; railway stations near your stops,
+rounded to ~100 m, to Overpass; and train-leg station and route-hint points to the
+public BRouter rail router (brouter.de). Lookups are cached in
 `~/.cache/tripmap`. Rendering uses headless Google Chrome.

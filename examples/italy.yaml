@@ -1,10 +1,11 @@
-# tripmap draft from 708 photos, 2024-05-02 to 2024-05-08. Edit freely, then:
+# tripmap draft from 571 photos, 2024-05-02 to 2024-05-08. Edit freely, then:
 #   tripmap render italy.yaml --photo <background photo>
 #
 # stops: kind = major (red pin) | minor (gold star) | hidden (route passes, no marker)
 #        label = auto | n | s | e | w | ne | nw | se | sw | none
 #        rename freely; legs refer to stops by name, so rename in both places
-# legs:  mode = drive (real roads) | boat (dashed, ship icon) | flight (dashed arc, plane icon)
+# legs:  mode = drive (real roads) | train (real rail lines, train icon) | boat (dashed, ship icon)
+#               | flight (dashed arc, plane icon)
 #        via = stop names or [lat, lon] route hints, in travel order
 #        day_trip: true legs are left out of the plain version and drawn in
 #        the "-with-day-trips" version
@@ -26,8 +27,8 @@ stops:
 legs:
   # - {date: 2024-05-02, mode: flight, day_trip: false, via: ["Heathrow Terminal 5", [44.788, 10.286]]}
   - {date: 2024-05-02, mode: drive, day_trip: false, via: [[44.788, 10.286], [44.529, 11.296], "Bologna"]}
-  - {date: 2024-05-03, mode: drive, day_trip: false, via: ["Bologna", "Florence", [42.974, 11.958], "Rome"]}
-  - {date: 2024-05-05, mode: drive, day_trip: false, via: ["Rome", "Florence"]}
+  - {date: 2024-05-03, mode: train, day_trip: false, via: ["Bologna", [43.796, 11.236], [42.974, 11.958], "Rome"]}
+  - {date: 2024-05-05, mode: train, day_trip: false, via: ["Rome", "Florence"]}
   - {date: 2024-05-07, mode: drive, day_trip: false, via: ["Florence", "Bologna"]}
   - {date: 2024-05-08, mode: drive, day_trip: false, via: ["Bologna", "Bologna Airport"]}
   # - {date: 2024-05-08, mode: flight, day_trip: false, via: ["Bologna Airport", "Terminal 5"]}
