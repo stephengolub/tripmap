@@ -3,6 +3,7 @@ import { tripOf, tripReducer, type TripState } from '../trip/reducer'
 import { validateTrip } from '../trip/validate'
 import type { LatLon, Trip } from '../types/trip'
 import LegList from './LegList'
+import PhotoPreview, { type PhotoSize } from './PhotoPreview'
 import RenderPanel from './RenderPanel'
 import StopList from './StopList'
 import TripMap from './TripMap'
@@ -22,6 +23,8 @@ export default function Editor({ initial }: Props) {
   const [mode, setMode] = useState<MapMode>({ kind: 'idle' })
   // Position of the stop just placed on the map, to select its name field.
   const [addedAt, setAddedAt] = useState<LatLon | null>(null)
+  const [png, setPng] = useState<Blob | null>(null)
+  const [photoSize, setPhotoSize] = useState<PhotoSize | null>(null)
 
   const errors = useMemo(() => validateTrip(state), [state])
   const trip = useMemo(() => tripOf(state), [state])
@@ -83,7 +86,8 @@ export default function Editor({ initial }: Props) {
 
       <ValidationSummary errors={errors} trip={state} />
 
-      <RenderPanel trip={trip} />
+      <RenderPanel trip={trip} photoSize={photoSize} onRendered={setPng} />
+      <PhotoPreview png={png} onPhotoSize={setPhotoSize} />
 
       <StopList stops={state.stops} onAction={dispatch} error={state.error} focusName={focusName} />
     </section>

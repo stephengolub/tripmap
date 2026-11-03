@@ -67,6 +67,19 @@ describe('RenderPanel', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:first')
   })
 
+  it('renders in the shape of the background photo', async () => {
+    vi.mocked(renderTrip).mockResolvedValue(new Blob(['png']))
+    createObjectURL.mockReturnValue('blob:render-1')
+    render(<RenderPanel trip={trip} photoSize={{ width: 3000, height: 4000 }} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Render' }))
+    await screen.findByRole('img')
+    expect(renderTrip).toHaveBeenCalledWith(trip, {
+      size: 1600,
+      with_day_trips: false,
+      photo_size: { width: 3000, height: 4000 },
+    })
+  })
+
   it('shows the server error', async () => {
     vi.mocked(renderTrip).mockRejectedValue(new Error('Chrome was not found.'))
     render(<RenderPanel trip={trip} />)

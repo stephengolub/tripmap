@@ -1,0 +1,17 @@
+.photo-preview {
+  margin-top: 1rem;
+}
+
+.photo-preview-hint {
+  color: #666;
+}
+
+.photo-preview-error {
+  color: #b00020;
+}
+
+.photo-preview-canvas {
+  display: block;
+  max-width: 100%;
+  margin: 0.75rem 0;
+}

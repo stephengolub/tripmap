@@ -9,13 +9,15 @@ export const PREVIEW_SIZE = 1600
 
 type Props = {
   trip: Trip
+  // Background photo size, so the PNG is drawn in the photo's shape.
+  photoSize?: { width: number; height: number } | null
   // Called with each new PNG, for the photo preview to composite.
   onRendered?: (png: Blob) => void
 }
 
 // Posts the trip to /api/trips/render and shows the PNG it gets back. The
 // image is held as an object URL in this tab only.
-export default function RenderPanel({ trip, onRendered }: Props) {
+export default function RenderPanel({ trip, photoSize, onRendered }: Props) {
   const [withDayTrips, setWithDayTrips] = useState(false)
   const [url, setUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -33,7 +35,11 @@ export default function RenderPanel({ trip, onRendered }: Props) {
     setBusy(true)
     setError(null)
     try {
-      const png = await renderTrip(trip, { size: PREVIEW_SIZE, with_day_trips: withDayTrips })
+      const png = await renderTrip(trip, {
+        size: PREVIEW_SIZE,
+        with_day_trips: withDayTrips,
+        ...(photoSize ? { photo_size: photoSize } : {}),
+      })
       const next = URL.createObjectURL(png)
       if (urlRef.current) URL.revokeObjectURL(urlRef.current)
       urlRef.current = next
