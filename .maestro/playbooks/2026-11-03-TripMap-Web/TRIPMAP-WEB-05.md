@@ -36,7 +36,7 @@ Rules for every task:
 
 - [x] Implement `renderTrip`, `exportYaml`, `importYaml`, and `suggestMode` in `web/src/api/client.ts` (the stubs from phase 03). Verification: `web/src/api/client.test.ts` mocks `fetch` and checks each request URL, method, content type, and body shape. `renderTrip` must return a `Blob`.
 
-- [ ] Create `web/src/components/RenderPanel.tsx` with the render button, the day-trip checkbox, the inline image, and the download link. Revoke the previous object URL when a new render replaces it. Verification: `web/src/components/RenderPanel.test.tsx` mocks `renderTrip` and `URL.createObjectURL`, clicks Render, and checks the image `src` is the created URL. It also checks the button is disabled when the trip has a validation error.
+- [x] Create `web/src/components/RenderPanel.tsx` with the render button, the day-trip checkbox, the inline image, and the download link. Revoke the previous object URL when a new render replaces it. Verification: `web/src/components/RenderPanel.test.tsx` mocks `renderTrip` and `URL.createObjectURL`, clicks Render, and checks the image `src` is the created URL. It also checks the button is disabled when the trip has a validation error.
 
 - [ ] Create `web/src/components/PhotoPreview.tsx` that composites the rendered PNG over an uploaded photo using a canvas. Export the pure helper `compositeSize(photoW, photoH, maxSide)` returning the output dimensions, and test it in `web/src/components/PhotoPreview.test.ts`: a landscape 4000x3000 photo at max 1600 gives 1600x1200, and a portrait 3000x4000 gives 1200x1600. Verification: `npm test` passes.
 
@@ -55,6 +55,7 @@ Rules for every task:
 (The agent fills this in: the four check results, and any skipped assertion with its reason.)
 
 - Task 1: `renderTrip` posts `{trip, ...opts}` to `/api/trips/render` and returns `res.blob()`; `exportYaml` posts `{trip}` to `/api/trips/yaml` and returns the text; `suggestMode` posts `{from, to, elapsed_hours?}` to `/api/legs/suggest-mode`. All JSON. The Blob test checks the `[object Blob]` tag rather than `instanceof Blob`, because under jsdom `Response.blob()` returns Node's Blob class, not jsdom's. `npm test` 76/76, `tsc -b` clean.
+- Task 2: `RenderPanel` computes `validateTrip` itself and disables Render on any error; posts at size 1600 with the day-trip checkbox; revokes the previous object URL on re-render and on unmount; shows server errors in an alert; exposes `onRendered(png)` for the photo preview. Mounted in `Editor` below the validation summary, fed `tripOf(state)` so the editor-only `error` field never reaches the API. 4 new tests; `npm test` 80/80, `tsc -b` clean.
 
 ## Manual Follow-Up (not executed by Auto Run)
 

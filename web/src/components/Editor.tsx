@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useReducer, useState } from 'react'
-import { tripReducer, type TripState } from '../trip/reducer'
+import { tripOf, tripReducer, type TripState } from '../trip/reducer'
 import { validateTrip } from '../trip/validate'
 import type { LatLon, Trip } from '../types/trip'
 import LegList from './LegList'
+import RenderPanel from './RenderPanel'
 import StopList from './StopList'
 import TripMap from './TripMap'
 
@@ -23,6 +24,7 @@ export default function Editor({ initial }: Props) {
   const [addedAt, setAddedAt] = useState<LatLon | null>(null)
 
   const errors = useMemo(() => validateTrip(state), [state])
+  const trip = useMemo(() => tripOf(state), [state])
   const focusName = addedAt
     ? state.stops.find((s) => s.at[0] === addedAt[0] && s.at[1] === addedAt[1])?.name
     : undefined
@@ -80,6 +82,8 @@ export default function Editor({ initial }: Props) {
       </div>
 
       <ValidationSummary errors={errors} trip={state} />
+
+      <RenderPanel trip={trip} />
 
       <StopList stops={state.stops} onAction={dispatch} error={state.error} focusName={focusName} />
     </section>

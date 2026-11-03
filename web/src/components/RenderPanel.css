@@ -1,0 +1,25 @@
+.render-panel {
+  margin-top: 1rem;
+}
+
+.render-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.render-hint {
+  color: #666;
+}
+
+.render-error {
+  color: #b00020;
+}
+
+/* The PNG is transparent; a checkerboard shows where it is. */
+.render-image {
+  display: block;
+  max-width: 100%;
+  margin-top: 0.75rem;
+  background: repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50% / 20px 20px;
+}
