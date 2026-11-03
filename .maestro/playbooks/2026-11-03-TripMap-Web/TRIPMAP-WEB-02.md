@@ -39,7 +39,7 @@ All responses are JSON unless noted. Errors use FastAPI's `{"detail": ...}` shap
 
 ## Tasks
 
-- [ ] Add dependencies in `pyproject.toml`: a `web` optional extra with `fastapi>=0.115` and `uvicorn>=0.30`. The contract takes JSON and raw text bodies only, so do not add `python-multipart`. Add `httpx>=0.27` to the dev group for `TestClient`. Package discovery is already set in `pyproject.toml` as `[tool.setuptools.packages.find]` with `where = ["src"]` and `include = ["tripmap*"]`, which covers `src/tripmap_api` as well. Do not change it. Run `uv lock` and `uv sync --all-extras`. Verification: `uv run python -c "import fastapi, uvicorn, httpx"` succeeds, and `uv build --wheel --out-dir /tmp/tripmap-wheel` followed by `python3 -m zipfile -l /tmp/tripmap-wheel/*.whl` lists both `tripmap/__init__.py` and `tripmap_api/__init__.py`.
+- [x] Add dependencies in `pyproject.toml`: a `web` optional extra with `fastapi>=0.115` and `uvicorn>=0.30`. The contract takes JSON and raw text bodies only, so do not add `python-multipart`. Add `httpx>=0.27` to the dev group for `TestClient`. Package discovery is already set in `pyproject.toml` as `[tool.setuptools.packages.find]` with `where = ["src"]` and `include = ["tripmap*"]`, which covers `src/tripmap_api` as well. Do not change it. Run `uv lock` and `uv sync --all-extras`. Verification: `uv run python -c "import fastapi, uvicorn, httpx"` succeeds, and `uv build --wheel --out-dir /tmp/tripmap-wheel` followed by `python3 -m zipfile -l /tmp/tripmap-wheel/*.whl` lists both `tripmap/__init__.py` and `tripmap_api/__init__.py`.
 
 - [ ] Create `src/tripmap_api/__init__.py` and `src/tripmap_api/app.py` with `create_app() -> FastAPI`. Register CORS for `http://localhost:5173` only. Mount the routes above in `src/tripmap_api/routes.py`. Put the Pydantic request and response models in `src/tripmap_api/models.py`. Verification: `uv run python -c "from tripmap_api.app import create_app; create_app()"` succeeds.
 
@@ -62,6 +62,8 @@ All responses are JSON unless noted. Errors use FastAPI's `{"detail": ...}` shap
 ## Notes
 
 (The agent fills this in: anything in the contract that had to change, and why.)
+
+- Task 1: added the `web` extra (fastapi, uvicorn) and `httpx` in the dev group; `uv lock` + `uv sync --all-extras` done. The wheel check needs `tripmap_api/__init__.py` to exist, so task 1 created it with a one-line docstring; task 2 builds on it.
 
 ## Manual Follow-Up (not executed by Auto Run)
 
