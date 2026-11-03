@@ -1,6 +1,7 @@
 """The API routes. Handlers that do blocking work are plain `def`, so FastAPI runs them in
 its threadpool. Nothing here keeps state between requests."""
 import datetime as dt
+import functools
 
 import yaml
 from fastapi import APIRouter, Body, HTTPException, Response
@@ -12,10 +13,6 @@ from .models import (DraftRequest, DraftResponse, PhotosStatus, RenderRequest, S
                      SuggestModeResponse, TripBody)
 
 router = APIRouter(prefix="/api")
-
-
-def _todo():
-    raise HTTPException(501, "Not implemented yet")
 
 
 @router.get("/photos/status", response_model=PhotosStatus)
@@ -81,4 +78,50 @@ def trip_import(text: str = Body(media_type="text/plain")):
 
 @router.post("/legs/suggest-mode", response_model=SuggestModeResponse)
 def suggest_mode(req: SuggestModeRequest):
-    _todo()
+    """The mode classify_hop picks for one hop. Stations are empty, so this never asks
+    Overpass, and a train is only recognised by its speed."""
+    geo = _geo()
+    base = 1_000_000_000.0  # any nonzero epoch: classify_hop treats a falsy t as "unknown"
+    nodes = []
+    for (lat, lon), t in ((req.from_, base), (req.to, base + (req.elapsed_hours or 0) * 3600)):
+        _, sea = geo.classify(lat, lon)
+        nodes.append(tripmap.Node("stop", lat, lon, t=t if req.elapsed_hours is not None else None,
+                                  sea=sea))
+    a, b = nodes
+    mode = tripmap.classify_hop(a, b, geo, _stations(), [])
+    return {"mode": mode, "reason": _reason(mode, a, b, req.elapsed_hours, geo)}
+
+
+@functools.lru_cache(maxsize=1)
+def _geo():
+    return tripmap.Geo()
+
+
+@functools.lru_cache(maxsize=1)
+def _stations():
+    return tripmap.Stations([])
+
+
+def _reason(mode, a, b, hours, geo):
+    """One sentence on why classify_hop chose `mode`, from the same facts it used."""
+    dist = tripmap.km(a.ll, b.ll)
+    ma, mb = geo.classify_strict(a.lat, a.lon), geo.classify_strict(b.lat, b.lon)
+    apart = ma is not None and mb is not None and ma != mb
+    pace = f" at about {dist / max(hours, 0.1):.0f} km/h" if hours is not None else ""
+    if mode == "train":
+        return f"A rail route links the two points and the {dist:.0f} km pace{pace} fits a train."
+    if mode == "flight":
+        if dist > 900:
+            return f"The points are {dist:.0f} km apart, too far to drive."
+        if pace and dist > 200:
+            return f"Covering {dist:.0f} km{pace} is faster than any road trip."
+        if apart:
+            return f"The points are on different landmasses, {dist:.0f} km apart."
+        return f"There is no sensible road over the {dist:.0f} km between the points."
+    if mode == "boat":
+        if a.sea or b.sea:
+            return "One end is at sea and both are on the coast."
+        if apart:
+            return f"The points are on different islands, {dist:.0f} km apart."
+        return f"No road links the two coastal points, {dist:.0f} km apart."
+    return f"A road links the two points, {dist:.0f} km apart."
