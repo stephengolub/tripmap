@@ -32,3 +32,12 @@ export {
 } from './legs.ts'
 export type { DraftOptions } from './draft.ts'
 export { TripError, defaultTitle, draft } from './draft.ts'
+export type { Box, Feature, PolygonCoords, Ring } from './geodata.ts'
+export { Geo } from './geodata.ts'
+export type { BasemapGeo, BasemapResult, Geometry } from './basemap.ts'
+export { pickBasemap } from './basemap.ts'
+export type { BadgeKind, LabelBox, LandGeo, LegRoute, RoadPiece, RouteServices } from './render/index.ts'
+export {
+  Canvas, Labeler, NAVY, PIN, SIDES, STAR, TripRenderError, badgeSvg, boatPath, buildSvg, drawnLegs, fmt0, landCut, lineD,
+  pinSvg, polyD, rasterizeSvgInBrowser, resolver, routeLegs, seaRoute, smoothD, starPoints, textW,
+} from './render/index.ts'
