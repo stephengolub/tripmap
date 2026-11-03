@@ -90,22 +90,23 @@ export async function importYaml(text: string): Promise<{ trip: Trip }> {
   return (await res.json()) as { trip: Trip }
 }
 
-function notYet(name: string): never {
-  throw new Error(`${name} is not yet implemented`)
+export async function renderTrip(trip: Trip, opts: RenderOptions = {}): Promise<Blob> {
+  const res = await postJson('/api/trips/render', { trip, ...opts })
+  return await res.blob()
 }
 
-export async function renderTrip(_trip: Trip, _opts: RenderOptions = {}): Promise<Blob> {
-  return notYet('renderTrip')
-}
-
-export async function exportYaml(_trip: Trip): Promise<string> {
-  return notYet('exportYaml')
+export async function exportYaml(trip: Trip): Promise<string> {
+  const res = await postJson('/api/trips/yaml', { trip })
+  return await res.text()
 }
 
 export async function suggestMode(
-  _from: LatLon,
-  _to: LatLon,
-  _elapsedHours?: number,
+  from: LatLon,
+  to: LatLon,
+  elapsedHours?: number,
 ): Promise<{ mode: Mode; reason: string }> {
-  return notYet('suggestMode')
+  const body: { from: LatLon; to: LatLon; elapsed_hours?: number } = { from, to }
+  if (elapsedHours !== undefined) body.elapsed_hours = elapsedHours
+  const res = await postJson('/api/legs/suggest-mode', body)
+  return (await res.json()) as { mode: Mode; reason: string }
 }

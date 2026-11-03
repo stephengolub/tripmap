@@ -34,7 +34,7 @@ Rules for every task:
 
 ## Tasks
 
-- [ ] Implement `renderTrip`, `exportYaml`, `importYaml`, and `suggestMode` in `web/src/api/client.ts` (the stubs from phase 03). Verification: `web/src/api/client.test.ts` mocks `fetch` and checks each request URL, method, content type, and body shape. `renderTrip` must return a `Blob`.
+- [x] Implement `renderTrip`, `exportYaml`, `importYaml`, and `suggestMode` in `web/src/api/client.ts` (the stubs from phase 03). Verification: `web/src/api/client.test.ts` mocks `fetch` and checks each request URL, method, content type, and body shape. `renderTrip` must return a `Blob`.
 
 - [ ] Create `web/src/components/RenderPanel.tsx` with the render button, the day-trip checkbox, the inline image, and the download link. Revoke the previous object URL when a new render replaces it. Verification: `web/src/components/RenderPanel.test.tsx` mocks `renderTrip` and `URL.createObjectURL`, clicks Render, and checks the image `src` is the created URL. It also checks the button is disabled when the trip has a validation error.
 
@@ -53,6 +53,8 @@ Rules for every task:
 ## Notes
 
 (The agent fills this in: the four check results, and any skipped assertion with its reason.)
+
+- Task 1: `renderTrip` posts `{trip, ...opts}` to `/api/trips/render` and returns `res.blob()`; `exportYaml` posts `{trip}` to `/api/trips/yaml` and returns the text; `suggestMode` posts `{from, to, elapsed_hours?}` to `/api/legs/suggest-mode`. All JSON. The Blob test checks the `[object Blob]` tag rather than `instanceof Blob`, because under jsdom `Response.blob()` returns Node's Blob class, not jsdom's. `npm test` 76/76, `tsc -b` clean.
 
 ## Manual Follow-Up (not executed by Auto Run)
 
