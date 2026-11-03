@@ -18,6 +18,7 @@ web = [
 
 [project.scripts]
 tripmap = "tripmap:main"
+tripmap-api = "tripmap_api.__main__:main"
 
 [build-system]
 requires = ["setuptools>=68"]
