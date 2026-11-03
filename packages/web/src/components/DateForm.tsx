@@ -33,9 +33,10 @@ export function validateRange(start: string, end: string): RangeErrors {
 type Props = {
   // Runs the draft. A rejection's message is shown to the user, so throw readable text.
   onSubmit: (start: string, end: string) => Promise<void>
+  submitLabel?: string
 }
 
-export default function DateForm({ onSubmit }: Props) {
+export default function DateForm({ onSubmit, submitLabel = 'Detect route' }: Props) {
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [busy, setBusy] = useState(false)
@@ -108,7 +109,7 @@ export default function DateForm({ onSubmit }: Props) {
           </span>
         </div>
         <button type="submit" disabled={!valid || busy}>
-          Detect route
+          {submitLabel}
         </button>
       </fieldset>
       {busy && (

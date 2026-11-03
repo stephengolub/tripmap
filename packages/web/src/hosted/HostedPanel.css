@@ -1,0 +1,51 @@
+.hosted-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.hosted-panel p {
+  margin: 0;
+}
+
+.hosted-command {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hosted-command pre {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.hosted-note {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.hosted-paste {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.hosted-paste label {
+  font-weight: 600;
+}
+
+.hosted-paste textarea {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
