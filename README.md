@@ -114,7 +114,7 @@ scripts/dev.sh             # API on 127.0.0.1:8000, app on http://localhost:5173
 ```
 
 `scripts/dev.sh` runs both servers in the foreground and stops both on Ctrl-C. It runs
-`npm install` in `web/` the first time. Open http://localhost:5173.
+`npm install` at the repo root (npm workspaces) the first time. Open http://localhost:5173.
 
 **Photos needs Full Disk Access.** macOS blocks reading the Photos library until the app
 that started the server is allowed. Open **System Settings > Privacy & Security > Full Disk
@@ -218,7 +218,7 @@ Layout:
   directory, so the suite is offline and leaves `~/.cache/tripmap` alone.
 - `examples/`: real trip data and previews. See the note in `CLAUDE.md` about publishing.
 - `src/tripmap_api/`: the FastAPI app behind the web app.
-- `web/`: the Vite + React + TypeScript front end. `npm test` (Vitest) and
+- `packages/web/`: the Vite + React + TypeScript front end. `npm test` (Vitest) and
   `npm run test:e2e` (Playwright; starts both servers itself).
 - `scripts/dev.sh`: runs the web app locally.
 - `docs/`: the trip-file reference, the detection rules, and the HTTP API.

@@ -1,7 +1,7 @@
 {
-  "name": "web",
+  "name": "@tripmap/web",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,9 +9,11 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run --passWithNoTests",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@tripmap/core": "*",
     "@types/leaflet": "^1.9.22",
     "leaflet": "^1.9.4",
     "react": "^19.3.1",

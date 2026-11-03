@@ -16,11 +16,11 @@ trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how
 - `uv run pytest` runs `tests/` offline. The network-facing tests stub `urllib` and redirect
   `tripmap.CACHE` to a temp directory via the `cache` fixture in `tests/conftest.py`. Add
   new HTTP-touching code under the same stubs.
-- `web/` is the Vite + React + TypeScript front end (Leaflet map). Node is the asdf 22.14.0
-  install. `cd web && npm test` (Vitest, offline, mocks the API client) and `npm run build`.
+- `packages/web/` (`@tripmap/web`) is the Vite + React + TypeScript front end (Leaflet map). Node is the asdf 22.14.0
+  install. `cd packages/web && npm test` (Vitest, offline, mocks the API client) and `npm run build`.
   It reaches `tripmap-api` only through the dev server's `/api` proxy; the trip lives in
   browser state, never on the server.
-- `cd web && npm run test:e2e` (Playwright) starts both servers from `web/playwright.config.ts`
+- `cd packages/web && npm run test:e2e` (Playwright) starts both servers from `packages/web/playwright.config.ts`
   and opens `examples/italy.yaml`, so it needs no network or Photos access, but render needs
   Chrome. `scripts/dev.sh` runs the web app locally (needs `uv sync --all-extras` once).
 - Not unit-tested: the nested detection logic in `cmd_draft`, the full SVG render, and the
@@ -35,7 +35,7 @@ trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how
 
 - Layout: new Python code goes under `src/`, never at the repo root. The core package is
   `src/tripmap/`; the API is a second package, `src/tripmap_api/` (FastAPI, the `web` extra).
-  Tests are in `tests/`, the front end in `web/`, scripts in `scripts/`. Endpoints are
+  Tests are in `tests/`, the front end in `packages/web/`, scripts in `scripts/`. Endpoints are
   documented in `docs/api.md`.
 - Front end: Vite + React + TypeScript, Leaflet via react-leaflet, OpenStreetMap raster
   tiles from `https://tile.openstreetmap.org/{z}/{x}/{y}.png` with the attribution

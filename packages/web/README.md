@@ -1,6 +1,6 @@
 # tripmap web
 
-The browser front end for tripmap. It talks only to `tripmap-api` (see `../docs/api.md`),
+The browser front end for tripmap. It talks only to `tripmap-api` (see `../../docs/api.md`),
 through the Vite dev server's `/api` proxy.
 
 ```sh

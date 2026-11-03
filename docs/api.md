@@ -1,7 +1,7 @@
 # HTTP API
 
 `tripmap-api` serves a small JSON API over the same code the CLI runs. The web frontend
-in `web/` is its only intended client.
+in `packages/web/` is its only intended client.
 
 ```sh
 uv sync --all-extras
@@ -28,7 +28,7 @@ The examples below use public city centres, not real trip data.
 ## How the web app calls it
 
 The browser reaches the API only through the Vite dev server's `/api` proxy, through the
-functions in `web/src/api/client.ts`. Run both with `scripts/dev.sh` (see the README's
+functions in `packages/web/src/api/client.ts`. Run both with `scripts/dev.sh` (see the README's
 "Web app" section).
 
 | Web app action | Client function | Endpoint |

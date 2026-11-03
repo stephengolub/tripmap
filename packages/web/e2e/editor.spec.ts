@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 
 // Starts from Open YAML rather than a live draft, so it needs neither Photos
 // nor the draft's network calls.
-const ITALY = fileURLToPath(new URL('../../examples/italy.yaml', import.meta.url))
+const ITALY = fileURLToPath(new URL('../../../examples/italy.yaml', import.meta.url))
 
 test('open Italy, see it on the map and in the legs, render it', async ({ page }) => {
   await page.goto('/')

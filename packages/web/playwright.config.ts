@@ -14,7 +14,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: 'uv run --project .. tripmap-api',
+      command: 'uv run --project ../.. tripmap-api',
       url: 'http://127.0.0.1:8000/openapi.json',
       reuseExistingServer: true,
       timeout: 120_000,

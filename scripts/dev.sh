@@ -28,10 +28,11 @@ trap cleanup INT TERM EXIT
 (cd "$ROOT" && exec uv run tripmap-api --port 8000) &
 pids+=($!)
 
-if [ ! -d "$ROOT/web/node_modules" ]; then
-  (cd "$ROOT/web" && npm install)
+# npm workspaces: one install at the root covers packages/web.
+if [ ! -d "$ROOT/node_modules/@tripmap/web" ]; then
+  (cd "$ROOT" && npm install)
 fi
-(cd "$ROOT/web" && exec npm run dev -- --host localhost --port 5173 --strictPort) &
+(cd "$ROOT/packages/web" && exec npm run dev -- --host localhost --port 5173 --strictPort) &
 pids+=($!)
 
 echo "tripmap: API on http://127.0.0.1:8000, app on http://localhost:5173 (Ctrl-C to stop)"
