@@ -44,7 +44,7 @@ class PhotoSize(BaseModel):
 
 class RenderRequest(BaseModel):
     trip: Trip
-    size: int = 1600
+    size: int = Field(default=1600, ge=200, le=6000)
     photo_size: PhotoSize | None = None
     with_day_trips: bool = False
 

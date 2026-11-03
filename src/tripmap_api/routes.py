@@ -32,9 +32,21 @@ def draft(req: DraftRequest):
     return {"trip": trip, "stats": stats}
 
 
-@router.post("/trips/render")
+@router.post("/trips/render", response_class=Response,
+             responses={200: {"content": {"image/png": {}}}})
 def render(req: RenderRequest):
-    _todo()
+    trip = req.trip
+    for key in ("stops", "legs"):
+        if not isinstance(trip.get(key), list) or not trip[key]:
+            raise HTTPException(422, f"The trip has no {key}")
+    photo_size = (req.photo_size.width, req.photo_size.height) if req.photo_size else None
+    try:
+        png = tripmap.render_png(trip, req.size, photo_size, req.with_day_trips)
+    except (KeyError, TypeError, IndexError) as e:
+        raise HTTPException(422, f"Not a complete trip: {e!r}")
+    except SystemExit as e:  # the CLI's find_chrome() exits when Chrome is missing
+        raise HTTPException(503, str(e.code))
+    return Response(content=png, media_type="image/png")
 
 
 @router.post("/trips/yaml")

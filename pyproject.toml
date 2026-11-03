@@ -35,3 +35,6 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: needs Chrome and the network caches; still runs by default as a regression check",
+]
