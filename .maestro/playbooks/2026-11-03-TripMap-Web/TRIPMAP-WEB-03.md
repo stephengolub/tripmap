@@ -36,7 +36,7 @@ Rules for every task:
 
 ## Tasks
 
-- [ ] Scaffold `web/` with Vite's React and TypeScript template: `npm create vite@latest web -- --template react-ts` run from `/Users/sgolub/code/tripmap`, using the npm path in the shared context. Then `cd web && npm install`. Verification: `cd web && npm run build` succeeds.
+- [x] Scaffold `web/` with Vite's React and TypeScript template: `npm create vite@latest web -- --template react-ts` run from `/Users/sgolub/code/tripmap`, using the npm path in the shared context. Then `cd web && npm install`. Verification: `cd web && npm run build` succeeds.
 
 - [ ] Add `web/vite.config.ts` proxy: `/api` to `http://127.0.0.1:8000`, and `server.port = 5173` with `strictPort: true`. Verification: the config file contains both `127.0.0.1:8000` and `5173` (check with `rg`).
 
