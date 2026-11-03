@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// End-to-end tests drive the real app: the FastAPI backend on 127.0.0.1:8000
+// End-to-end tests drive the real app: `tripmap serve` on 127.0.0.1:8787
 // and the Vite dev server on :5173, which proxies /api to it.
 export default defineConfig({
   testDir: './e2e',
@@ -14,8 +14,8 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: 'uv run --project ../.. tripmap-api',
-      url: 'http://127.0.0.1:8000/openapi.json',
+      command: 'npx tsx ../cli/src/cli.ts serve --port 8787',
+      url: 'http://127.0.0.1:8787/api/photos/status',
       reuseExistingServer: true,
       timeout: 120_000,
     },

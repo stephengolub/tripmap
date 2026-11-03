@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 
-// Matches the server's limit in tripmap_api.models: end - start may be at most 60 days.
+// Matches MAX_DETECT_DAYS in packages/cli/src/serve.ts: end - start may be at most 60 days.
 export const MAX_SPAN_DAYS = 60
 
 export type RangeErrors = { start: string | null; end: string | null }

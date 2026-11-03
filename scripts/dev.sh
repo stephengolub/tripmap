@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the tripmap web app for local use: the API on 127.0.0.1:8000 and the
+# Run the tripmap web app for local use: `tripmap serve` on 127.0.0.1:8787 and the
 # Vite dev server on http://localhost:5173 (which proxies /api to the API).
 # Both run in the foreground; Ctrl-C stops both.
 set -euo pipefail
@@ -12,7 +12,7 @@ if ! command -v npm >/dev/null 2>&1 && [ -x "$NODE_BIN/npm" ]; then
 fi
 
 # Job control puts each child in its own process group, so cleanup can stop
-# the whole tree (uv -> python, npm -> node) and not just the direct child.
+# the whole tree (npx -> node, npm -> node) and not just the direct child.
 set -m
 pids=()
 cleanup() {
@@ -24,18 +24,18 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-# tripmap-api always binds to 127.0.0.1 (loopback only).
-(cd "$ROOT" && exec uv run tripmap-api --port 8000) &
-pids+=($!)
-
-# npm workspaces: one install at the root covers packages/web.
+# npm workspaces: one install at the root covers every package.
 if [ ! -d "$ROOT/node_modules/@tripmap/web" ]; then
   (cd "$ROOT" && npm install)
 fi
+
+# `tripmap serve` always binds to 127.0.0.1 (loopback only).
+(cd "$ROOT" && exec npx tsx packages/cli/src/cli.ts serve --port 8787) &
+pids+=($!)
 (cd "$ROOT/packages/web" && exec npm run dev -- --host localhost --port 5173 --strictPort) &
 pids+=($!)
 
-echo "tripmap: API on http://127.0.0.1:8000, app on http://localhost:5173 (Ctrl-C to stop)"
+echo "tripmap: API on http://127.0.0.1:8787, app on http://localhost:5173 (Ctrl-C to stop)"
 
 # Exit as soon as either process dies; the trap stops the other. Polling
 # rather than `wait -n` keeps this working on macOS's stock bash 3.2.

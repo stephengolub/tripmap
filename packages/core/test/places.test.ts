@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { parseBplist, Uid, type PlistValue } from '../src/bplist.ts'
 import { decodePlaceNames } from '../src/places.ts'
 
-// Invented names only; regenerate with test/fixtures/make-place-synthetic.py.
+// Invented names only; regenerate with test/fixtures/make-place-synthetic.mjs.
 const fixture = new Uint8Array(readFileSync(new URL('./fixtures/place-synthetic.bplist', import.meta.url)))
 
 describe('decodePlaceNames', () => {

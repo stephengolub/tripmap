@@ -87,7 +87,7 @@ export function dumpTripYaml(trip: Trip, opts: DumpOptions = {}): string {
   return L.join('\n') + '\n'
 }
 
-// Trip YAML text back to a trip. Mirrors trip_import in src/tripmap_api/routes.py.
+// Trip YAML text back to a trip. Ported from the Python trip_import (src/tripmap_api/routes.py, now in git history only).
 // Commented-out legs are comments, so they do not come back.
 export function parseTripYaml(text: string): Trip {
   let doc: unknown
