@@ -13,6 +13,7 @@ land with a white coastline.
 - [Commands](#commands)
 - [Trip files](docs/trip-format.md): stops, legs, modes, basemaps
 - [How `draft` decides](docs/how-draft-works.md): overnights, stars, boats, trains, flights
+- [HTTP API](docs/api.md): the `tripmap-api` endpoints behind the web app
 - [Privacy and network use](#privacy-and-network-use)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
