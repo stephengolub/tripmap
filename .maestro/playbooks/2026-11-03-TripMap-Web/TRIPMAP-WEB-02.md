@@ -57,7 +57,7 @@ All responses are JSON unless noted. Errors use FastAPI's `{"detail": ...}` shap
 
 - [x] Add `docs/api.md` that documents each endpoint above with one request and one response example. Verification: `rg -c "^### " docs/api.md` prints at least 6.
 
-- [ ] Run `uv run pytest -q`. It must pass, if Chrome is not installed, run `uv run pytest -q -m "not slow"` and record in the Notes section that the slow test was skipped and why. Commit locally with `Add FastAPI backend for trip draft, render, import and mode suggestion`. Do not push.
+- [x] Run `uv run pytest -q`. It must pass, if Chrome is not installed, run `uv run pytest -q -m "not slow"` and record in the Notes section that the slow test was skipped and why. Commit locally with `Add FastAPI backend for trip draft, render, import and mode suggestion`. Do not push.
 
 ## Notes
 
@@ -72,6 +72,7 @@ All responses are JSON unless noted. Errors use FastAPI's `{"detail": ...}` shap
 - Task 7: `tests/test_api_stateless.py`. The render stub returns a real blank PNG sized by `tripmap.canvas_size`, so each response's IHDR is checked against its own request: 400 gives 400x400, 800 with a 3000x2000 photo gives 800x533, and repeating the first request returns the first bytes again. `app.state` is compared to a bare `FastAPI().state` both fresh and after render and yaml requests. 91 tests pass.
 - Task 8: `tripmap-api` console script → `tripmap_api.__main__:main`. `main()` uses argparse so `--help` prints usage, and takes one option, `--port` (default 8000). The host is a fixed literal `127.0.0.1` with no flag to change it. `tests/test_api_main.py` parses `__main__.py` with `ast` and checks the only `host=` keyword is `127.0.0.1`, and stubs `uvicorn.run` to check `--port` passes through. 93 tests pass.
 - Task 9: `docs/api.md` documents all six endpoints, one `###` each, with a curl request and a response. The examples use public city centres (Dublin, Galway, Lyon), not trip data. The yaml, import, suggest-mode and error examples are real output captured through `TestClient`; the draft response is illustrative, since a real one would be personal data, but its field names match `build_trip`. The render size (1600x1067 for a 3000x2000 photo) was checked against `canvas_size`. Linked from the README.
+- Task 10: `uv run pytest -q` ran the full suite, slow test included (Chrome is installed): 93 passed, 0 skipped, one Starlette `httpx2` deprecation warning. Earlier tasks were each committed on their own, so this commit carries only the playbook notes, under the message the task asked for. Not pushed.
 
 ## Manual Follow-Up (not executed by Auto Run)
 
