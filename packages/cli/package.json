@@ -1,0 +1,24 @@
+{
+  "name": "tripmap",
+  "version": "1.0.0",
+  "description": "Turn a trip in your macOS Photos library into a transparent PNG route map",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "tripmap": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "web-dist"
+  ],
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tripmap/core": "*"
+  }
+}
