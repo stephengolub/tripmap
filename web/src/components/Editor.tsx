@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import { tripOf, tripReducer, type TripState } from '../trip/reducer'
 import { validateTrip } from '../trip/validate'
 import type { LatLon, Trip } from '../types/trip'
@@ -11,6 +11,8 @@ import TripMap from './TripMap'
 type Props = {
   // The drafted trip. Mount a fresh Editor (new `key`) for each draft.
   initial: Trip
+  // Called with the current trip after every change, for Save YAML.
+  onChange?: (trip: Trip) => void
 }
 
 // Where the next map click goes: a new stop, or a route point for one via entry.
@@ -18,7 +20,7 @@ type MapMode = { kind: 'idle' } | { kind: 'addStop' } | { kind: 'point'; legInde
 
 // The map editor. Every edit goes through tripReducer; the trip stays in
 // browser memory.
-export default function Editor({ initial }: Props) {
+export default function Editor({ initial, onChange }: Props) {
   const [state, dispatch] = useReducer(tripReducer, initial as TripState)
   const [mode, setMode] = useState<MapMode>({ kind: 'idle' })
   // Position of the stop just placed on the map, to select its name field.
@@ -28,6 +30,7 @@ export default function Editor({ initial }: Props) {
 
   const errors = useMemo(() => validateTrip(state), [state])
   const trip = useMemo(() => tripOf(state), [state])
+  useEffect(() => onChange?.(trip), [trip, onChange])
   const focusName = addedAt
     ? state.stops.find((s) => s.at[0] === addedAt[0] && s.at[1] === addedAt[1])?.name
     : undefined

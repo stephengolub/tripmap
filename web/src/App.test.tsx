@@ -1,17 +1,158 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { draftTrip, getPhotosStatus } from './api/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { draftTrip, exportYaml, getPhotosStatus, importYaml } from './api/client'
 import App from './App'
+import type { Trip } from './types/trip'
 
-vi.mock('./api/client', () => ({ getPhotosStatus: vi.fn(), draftTrip: vi.fn(), suggestMode: vi.fn() }))
+vi.mock('./api/client', () => ({
+  getPhotosStatus: vi.fn(),
+  draftTrip: vi.fn(),
+  suggestMode: vi.fn(),
+  importYaml: vi.fn(),
+  exportYaml: vi.fn(),
+  renderTrip: vi.fn(),
+}))
 
 const status = vi.mocked(getPhotosStatus)
 const draft = vi.mocked(draftTrip)
+const imp = vi.mocked(importYaml)
+const exp = vi.mocked(exportYaml)
 
 beforeEach(() => {
   status.mockReset()
   draft.mockReset()
+  imp.mockReset()
+  exp.mockReset()
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+const italy: Trip = {
+  title: 'Italy',
+  stops: [
+    { name: 'Bologna', kind: 'major', at: [44.49, 11.34] },
+    { name: 'Rome', kind: 'major', at: [41.9, 12.5] },
+    { name: 'Florence', kind: 'major', at: [43.77, 11.25] },
+  ],
+  legs: [
+    { date: '2024-05-03', mode: 'train', via: ['Bologna', 'Rome'], enabled: true },
+    { date: '2024-05-05', mode: 'train', via: ['Rome', 'Florence'], enabled: true },
+  ],
+}
+
+const ireland: Trip = {
+  title: 'Ireland',
+  stops: [
+    { name: 'Dublin', kind: 'major', at: [53.35, -6.26] },
+    { name: 'Galway', kind: 'major', at: [53.27, -9.06] },
+  ],
+  legs: [{ date: '2026-05-02', mode: 'drive', via: ['Dublin', 'Galway'], enabled: true }],
+}
+
+function stopNames() {
+  const list = screen.getByRole('region', { name: 'Stops' })
+  return within(list)
+    .getAllByRole('listitem')
+    .map((li) => li.getAttribute('aria-label'))
+}
+
+function yamlFile(text = 'stops: []') {
+  return new File([text], 'trip.yaml', { type: 'text/yaml' })
+}
+
+describe('App file toolbar', () => {
+  it('Open YAML replaces the stop list with the imported trip', async () => {
+    status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    imp.mockResolvedValueOnce({ trip: ireland }).mockResolvedValueOnce({ trip: italy })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.upload(screen.getByLabelText('Open YAML file'), yamlFile('title: Ireland'))
+    expect(imp).toHaveBeenCalledWith('title: Ireland')
+    await screen.findByRole('region', { name: 'Stops' })
+    expect(stopNames()).toEqual(['Dublin', 'Galway'])
+
+    // No edits yet, so the second open replaces without asking.
+    const confirm = vi.spyOn(window, 'confirm')
+    await user.upload(screen.getByLabelText('Open YAML file'), yamlFile())
+    await screen.findByRole('listitem', { name: 'Florence' })
+    expect(stopNames()).toEqual(['Bologna', 'Rome', 'Florence'])
+    expect(confirm).not.toHaveBeenCalled()
+  })
+
+  it('asks before replacing unsaved edits, and keeps them on cancel', async () => {
+    status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    imp.mockResolvedValueOnce({ trip: ireland }).mockResolvedValue({ trip: italy })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.upload(screen.getByLabelText('Open YAML file'), yamlFile())
+    await screen.findByRole('listitem', { name: 'Galway' })
+    await user.click(screen.getByRole('button', { name: /remove leg 1 stop 2/i }))
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    await user.upload(screen.getByLabelText('Open YAML file'), yamlFile())
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(imp).toHaveBeenCalledTimes(1)
+    expect(stopNames()).toEqual(['Dublin', 'Galway'])
+
+    confirm.mockReturnValue(true)
+    await user.upload(screen.getByLabelText('Open YAML file'), yamlFile())
+    await screen.findByRole('listitem', { name: 'Florence' })
+    expect(stopNames()).toEqual(['Bologna', 'Rome', 'Florence'])
+  })
+
+  it('shows an import error and keeps the current trip', async () => {
+    status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    imp.mockResolvedValueOnce({ trip: ireland }).mockRejectedValueOnce(new Error('Bad YAML on line 3.'))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.upload(screen.getByLabelText('Open YAML file'), yamlFile())
+    await screen.findByRole('listitem', { name: 'Galway' })
+    await user.upload(screen.getByLabelText('Open YAML file'), yamlFile())
+    expect(await screen.findByText('Bad YAML on line 3.')).toBeInTheDocument()
+    expect(stopNames()).toEqual(['Dublin', 'Galway'])
+  })
+
+  it('opens YAML even when Photos is not readable', async () => {
+    status.mockResolvedValue({ ok: false, library: '/lib', geotagged_assets: 0, message: 'No access.' })
+    imp.mockResolvedValue({ trip: italy })
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByText('No access.')).toBeInTheDocument()
+    await user.upload(screen.getByLabelText('Open YAML file'), yamlFile())
+    await screen.findByRole('listitem', { name: 'Florence' })
+  })
+
+  it('Save YAML posts the edited trip and downloads trip.yaml', async () => {
+    status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    imp.mockResolvedValue({ trip: ireland })
+    exp.mockResolvedValue('title: Ireland\n')
+    const create = vi.fn(() => 'blob:yaml')
+    const revoke = vi.fn()
+    URL.createObjectURL = create
+    URL.revokeObjectURL = revoke
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      expect(this.download).toBe('trip.yaml')
+      expect(this.getAttribute('href')).toBe('blob:yaml')
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(screen.getByRole('button', { name: 'Save YAML' })).toBeDisabled()
+    await user.upload(screen.getByLabelText('Open YAML file'), yamlFile())
+    await screen.findByRole('listitem', { name: 'Galway' })
+    await user.click(screen.getByRole('button', { name: 'Save YAML' }))
+
+    expect(exp).toHaveBeenCalledWith(expect.objectContaining({ title: 'Ireland', stops: ireland.stops }))
+    expect(click).toHaveBeenCalledTimes(1)
+    expect(revoke).toHaveBeenCalledWith('blob:yaml')
+  })
 })
 
 describe('App', () => {
