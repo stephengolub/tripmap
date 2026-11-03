@@ -42,7 +42,7 @@ Rules for every task:
 
 - [x] Add `tests/test_core.py`. Monkeypatch `tripmap.load_photos` to return a small synthetic list of `(ts, local_datetime, lat, lon, blob)` tuples for three nights in two towns, with `blob=None`. Stub `OSM.town_centre`, `OSM.stations`, and `OSM.landmarks` to deterministic values, and stub `road_km`, `osrm`, and `rail` to no-op answers, so the test is offline. Assert that `build_trip` returns the expected number of overnight stops and that `dump_trip_yaml` output loads with `yaml.safe_load` back to a dict with the same stops and legs. Add a test that `build_trip` raises `TripError` when there are fewer than two photos. Verification: `uv run pytest tests/test_core.py -q` passes.
 
-- [ ] Add `tests/test_classify.py` covering `classify_hop`: a 900 km hop returns `flight`, a 60 km land hop with a drivable route returns `drive`, and two sea-level nodes return `boat`. Build the `Node` objects directly and stub `drivable` and `geo` where needed. Verification: `uv run pytest -q` passes.
+- [x] Add `tests/test_classify.py` covering `classify_hop`: a 900 km hop returns `flight`, a 60 km land hop with a drivable route returns `drive`, and two sea-level nodes return `boat`. Build the `Node` objects directly and stub `drivable` and `geo` where needed. Verification: `uv run pytest -q` passes.
 
 - [ ] Run `uv run pytest -q` and `uv run tripmap --help`. Both must succeed. Commit locally with the message `Extract build_trip, dump_trip_yaml and render_png from the CLI`. Do not push.
 
@@ -106,6 +106,13 @@ Caveat for the `cmp` checks in later tasks: during the Ireland baseline the Over
 - Stubs beyond the spec: `tripmap.Geo` is replaced by a `FakeGeo` (all inland, one landmass, 100 km from the coast), because the real `Geo()` downloads Natural Earth on a cold cache. The shared `cache` fixture redirects `CACHE` so `OSM()` reads no real geocode cache. `osrm` returns a slightly longer-than-straight road so `drivable` is true.
 - Tests: overnights (2, nights `[2, 1]`), stats, the single drive leg; `dump_trip_yaml` round-trips through `yaml.safe_load` with the same stops and legs; a disabled leg is written commented out and drops out on load; `TripError` for 0 and 1 photos.
 - Verified: `uv run pytest tests/test_core.py -q` 5 passed, also with `urlopen`/`urlretrieve` patched to raise (so it is truly offline). Full suite: 50 passed.
+
+### tests/test_classify.py (2026-11-03, task 8)
+
+- Builds `Node` objects directly, uses a `FakeGeo` (one landmass, settable `coast_km`) and an empty `Stations`, and stubs `tripmap.rail` (None) and `tripmap.drivable` (True) with an autouse fixture, so nothing touches the network.
+- Covers the three requested cases (Dublin→Lyon ~1,150 km → `flight`; a ~60 km drivable land hop → `drive`; two sea nodes → `boat`), plus two more branches: an undrivable coastal hop → `boat`, and ~450 km in an hour → `flight` (speed rule).
+- Gotcha: `classify_hop` checks `a.t and b.t`, so a timestamp of `0` is falsy and skips the speed rule. The test uses realistic epoch values.
+- Verified: `uv run pytest -q` 55 passed.
 
 ## Manual Follow-Up (not executed by Auto Run)
 
