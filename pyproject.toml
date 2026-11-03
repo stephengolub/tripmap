@@ -1,0 +1,29 @@
+[project]
+name = "tripmap"
+version = "0.1.0"
+description = "Turn a trip in your Photos library into a transparent route-map overlay"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "pyyaml>=6",
+    "shapely>=2",
+]
+
+[project.scripts]
+tripmap = "tripmap:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["tripmap"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

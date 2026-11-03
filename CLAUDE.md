@@ -1,9 +1,21 @@
 # tripmap
 
-Single-file Python CLI (`tripmap.py`, a uv inline-script; deps: pyyaml, shapely) that
-turns a trip in Stephen's macOS Photos library into a transparent PNG route map to lay
-over an album photo. Installed as a symlink: `~/.local/bin/tripmap -> ~/code/tripmap/tripmap.py`.
-Usage is in `README.md`.
+Single-module Python CLI (`tripmap.py`) that turns a trip in Stephen's macOS Photos library
+into a transparent PNG route map to lay over an album photo. Usage is in `README.md`; the
+trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how-draft-works.md`.
+
+## Packaging and tests (uv)
+
+- `pyproject.toml` is the source of truth for dependencies (pyyaml, shapely) and the dev group
+  (pytest). `uv.lock` is committed. Do not reintroduce `# /// script` inline metadata.
+- Installed with `uv tool install --editable ~/code/tripmap`, which puts `tripmap` on
+  `~/.local/bin`. It is an editable install, so source edits apply without reinstalling.
+  Changing the dependencies needs `uv lock` and `uv sync`, then `uv tool upgrade tripmap`.
+- `uv run pytest` runs `tests/` offline. The network-facing tests stub `urllib` and redirect
+  `tripmap.CACHE` to a temp directory via the `cache` fixture in `tests/conftest.py`. Add
+  new HTTP-touching code under the same stubs.
+- Not unit-tested: the nested detection logic in `cmd_draft`, the full SVG render, and the
+  Photos reader. `examples/` is the regression check for those.
 
 - `tripmap trips [--since DATE]`: list trips found in Photos.
 - `tripmap draft --from DATE --to DATE -o trip.yaml`: detect the route, write an editable YAML.

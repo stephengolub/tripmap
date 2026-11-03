@@ -1,8 +1,3 @@
-#!/usr/bin/env -S uv run --quiet --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["pyyaml>=6", "shapely>=2"]
-# ///
 """tripmap: turn a trip in your Photos library into a transparent route-map overlay.
 
   tripmap trips [--since YYYY-MM-DD]                 list trips found in Photos
@@ -266,6 +261,7 @@ class OSM:
                 if res.get("remark") and not res.get("elements"):  # e.g. a timeout, reported with HTTP 200
                     raise RuntimeError(res["remark"][:120])
                 self.cache[key] = res
+                self.path.parent.mkdir(parents=True, exist_ok=True)
                 json.dump(self.cache, open(self.path, "w"))
                 break
             except Exception as e:  # noqa: BLE001 - next mirror

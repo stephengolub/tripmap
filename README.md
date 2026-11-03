@@ -1,50 +1,184 @@
 # tripmap
 
-Turns a trip in your Photos library into a transparent route-map PNG to lay over
-an album photo. Same look as the Ireland 2026 map: white roads, red pins for
-overnight stops, gold stars for quick stops, railway-track train legs with a train
-icon, dashed boat legs with a ship icon, dashed flight arcs with a plane icon, navy
+Turns a trip in your Photos library into a transparent route-map PNG to lay over an
+album photo. The look is fixed: white roads, red pins for overnight stops, gold stars
+for quick stops, a railway track with cross-ties and a train badge for train legs,
+dashed boat legs with a ship badge, dashed flight arcs with a plane badge, and navy
 land with a white coastline.
 
+![Italy 2024 train route, rendered on a neutral backdrop](examples/italy-preview.jpg)
+
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Commands](#commands)
+- [Trip files](docs/trip-format.md): stops, legs, modes, basemaps
+- [How `draft` decides](docs/how-draft-works.md): overnights, stars, boats, trains, flights
+- [Privacy and network use](#privacy-and-network-use)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+
+## Requirements
+
+- **macOS**, with a Photos library that has GPS-tagged photos. The library is read from
+  `~/Pictures/Photos Library.photoslibrary` by default (`--library` overrides it).
+- **[uv](https://docs.astral.sh/uv/)** to install and run tripmap. Python 3.11 or newer
+  is fetched by uv if you don't have one.
+- **Google Chrome** at `/Applications/Google Chrome.app`, used headless to rasterize the SVG.
+- **ImageMagick** (`magick` on your PATH), only for `render --photo`.
+- Internet access on the first run, for the basemap data and route lookups (see
+  [Privacy and network use](#privacy-and-network-use)).
+
+## Install
+
+From a checkout of this repository:
+
 ```sh
-tripmap trips --since 2024-01-01                          # find trips and their dates
-tripmap draft --from 2026-04-29 --to 2026-05-08 -o ireland.yaml
-#   ...edit ireland.yaml: rename, hide, or add stops...
-tripmap render ireland.yaml --photo album-page.jpg        # -> ireland.png (+ previews)
+git clone git@github.com:stephengolub/tripmap.git ~/code/tripmap
+uv tool install --editable ~/code/tripmap
+tripmap --help
 ```
 
-`render` matches the PNG to the photo's shape (4000 px on the long side) and
-writes a preview composited on it. If any legs are day trips you get two
-versions: `<name>.png` and `<name>-with-day-trips.png`.
+`--editable` means edits to `tripmap.py` take effect immediately, with no reinstall. To
+upgrade the dependencies later, run `uv tool upgrade tripmap`.
 
-## What the draft figures out
+## Quick start
 
-- **Overnight stops (pins):** where your last evening photo and next morning's
-  photo agree, named by voting on Apple's place names across your photos there.
-- **Quick stops (stars):** clusters of photos at one spot for 8+ minutes or 5+
-  photos. Named from Apple's points of interest, then nearby OpenStreetMap
-  landmarks, then the locality. Brief stops and airports start as `hidden`.
-- **Boat legs:** photos Apple places on water, or coastal photos far from any road.
-  Port-to-port hops with no sensible road (cruises, island ferries) also count.
-  Boat paths bend around headlands.
-- **Train legs:** land hops faster than any car (140–330 km/h between photos), or
-  a departure and arrival both photographed at railway stations, provided a real
-  rail line connects them. Drawn along the actual tracks, station to station.
-  Train rides with no photos at either station come out as drives: switch them
-  to `mode: train` by hand.
-- **Flights:** big jumps too fast to drive, or between landmasses. Flights at the
-  very start and end (getting there and home) are written commented out.
-- **Day trips:** days that start and end at the same overnight stop.
-- **Basemap:** `island` (the whole island, e.g. Ireland), `country` (the countries
-  you visited), or `region` (a faded crop when the countries are huge, e.g. the US).
+```sh
+tripmap trips --since 2024-01-01                           # find trips and their dates
+tripmap draft --from 2026-04-29 --to 2026-05-08 -o ireland.yaml
+#   ...edit ireland.yaml: rename stops, hide a hop, fix a mode...
+tripmap render ireland.yaml --photo album-page.jpg         # -> ireland.png and a preview
+```
 
-## Privacy
+`draft` writes a YAML file describing the route. `render` reads it and writes:
 
-Photos are read from a temp copy of the library database, never modified.
-Place names come from data Photos already stores on your Mac. Network calls:
-town *names* to Nominatim (to put pins at town centres); quick stops without an
-Apple point of interest, rounded to ~100 m, to Overpass; and route points,
-rounded to ~100 m, to the public OSRM router; railway stations near your stops,
-rounded to ~100 m, to Overpass; and train-leg station and route-hint points to the
-public BRouter rail router (brouter.de). Lookups are cached in
-`~/.cache/tripmap`. Rendering uses headless Google Chrome.
+- `<name>.png`: the overlay, transparent, at 4000 px on the long side.
+- `<name>-with-day-trips.png`: only if some legs are marked `day_trip: true`. The plain
+  version leaves those out.
+- `<name>-preview.jpg`: only with `--photo`. The overlay composited on your photo, to check
+  placement before you use the PNG.
+
+Edit the YAML between the two steps. Most corrections are a rename, a `kind` change, or
+moving a leg from `drive` to `train`. Re-running `render` is cheap, since routes are cached.
+
+## Commands
+
+### `tripmap trips`
+
+Lists trips found in the Photos library: runs of photos taken away from home.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--since YYYY-MM-DD` | none | Only trips starting after this date. |
+| `--away-km N` | `150` | Distance from home that counts as being away. |
+| `--min-photos N` | `30` | Trips with fewer photos are not listed. |
+
+### `tripmap draft`
+
+Detects the route for a date range and writes an editable trip file.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--from YYYY-MM-DD` | required | First day, inclusive. |
+| `--to YYYY-MM-DD` | required | Last day, inclusive. |
+| `-o, --output PATH` | `trip.yaml` | Where to write the trip file. |
+| `--title TEXT` | `Trip May 2 – May 8, 2024` | Title stored in the file. |
+
+### `tripmap render`
+
+Draws a trip file as transparent PNG overlays.
+
+| Argument or flag | Default | Meaning |
+|---|---|---|
+| `TRIP` | required | Trip YAML file. |
+| `--photo PATH` | none | Background photo. Sets the canvas shape to match it and writes a preview. |
+| `--out DIR` | next to the YAML | Output folder. |
+| `--size N` | `4000` | Long side of the PNG, in pixels. |
+
+### Global
+
+`--library PATH` points at a different Photos library.
+
+## Trip files
+
+A trip file has a title, a basemap, a list of **stops** (pins, stars, or hidden points),
+and a list of **legs** (the travel between stops, each with a mode). The full field
+reference is in [docs/trip-format.md](docs/trip-format.md).
+
+```yaml
+title: "Italy 2024"
+basemap: auto
+stops:
+  - {name: "Bologna", kind: major, at: [44.4938, 11.3426], label: auto}
+  - {name: "Florence", kind: major, at: [43.7698, 11.2556], label: auto}
+legs:
+  - {date: 2024-05-03, mode: train, day_trip: false, via: ["Bologna", "Florence"]}
+```
+
+## Privacy and network use
+
+Photos is read from a temporary copy of `Photos.sqlite` (with its `-wal` and `-shm`
+files). The live library is never opened or modified.
+
+Only these things leave your machine, and each is cached under `~/.cache/tripmap`:
+
+| Service | Sent | Why |
+|---|---|---|
+| Nominatim (OpenStreetMap) | Town **names** only | To find town centres for overnight pins. |
+| Overpass (OpenStreetMap) | Coordinates rounded to ~100 m | Landmark names for quick stops; railway stations near stops. |
+| OSRM (router.project-osrm.org) | Route points rounded to ~100 m | Road shapes, and whether a hop is drivable. |
+| BRouter (brouter.de) | Station and route-hint points rounded to ~100 m | Railway geometry for train legs. |
+| raw.githubusercontent.com | Nothing | Natural Earth coastline data, downloaded once. |
+
+Lookups are best-effort. If a service is down, the draft still completes, with those names
+or shapes left out, and the log says so.
+
+Place names come from data Photos already stores on your Mac.
+
+## Troubleshooting
+
+**`Rendering needs Google Chrome at ...`** Chrome is not at the default path. The path is
+a constant, `CHROME` in `tripmap.py`. Edit it if Chrome lives elsewhere.
+
+**`--photo` fails with `magick: command not found`.** Install ImageMagick (`brew install imagemagick`).
+
+**A train leg is drawn as a smooth curve, not following the rails.** Its rail route was
+not found, so tripmap drew a smooth curve through its points in track style and logged
+`no rail line found`. Check that the stops are near stations, or change the leg's `mode`.
+
+**A train leg you did not take, or a train you took came out as a drive.** Detection trusts
+photo timestamps. Two devices with clocks an hour apart can fake a speed. Set the leg's
+`mode` by hand. See [How `draft` decides](docs/how-draft-works.md#train-legs).
+
+**Overnight names look wrong (a townland, or a neighbouring village).** Edit the stop's
+`name` in `stops`, and in every leg whose `via` refers to it.
+
+**Landmark or road lookups keep failing.** The public Overpass and OSRM servers are often
+overloaded. Wait and re-run `draft`. Successful lookups are cached, so only the missing
+ones are retried.
+
+**Cache is stale or corrupt.** Delete `~/.cache/tripmap/` and re-run. It is rebuilt on demand.
+
+## Development
+
+tripmap is a single module, `tripmap.py`, packaged with uv. Dependencies and the dev
+environment are defined in `pyproject.toml`, with the exact resolved versions in `uv.lock`.
+
+```sh
+uv sync            # create .venv with the dependencies and pytest
+uv run pytest      # run the test suite (no network, no Photos library needed)
+uv run tripmap --help
+```
+
+Layout:
+
+- `tripmap.py`: the whole program. `cmd_draft` detects the route, `build_svg` draws it,
+  `cmd_render` writes the files.
+- `tests/`: unit tests. Network calls are stubbed and the cache is redirected to a temp
+  directory, so the suite is offline and leaves `~/.cache/tripmap` alone.
+- `examples/`: real trip data and previews. See the note in `CLAUDE.md` about publishing.
+- `docs/`: the trip-file reference and the detection rules.
+
+Not covered by tests yet: the detection logic inside `cmd_draft` (it is nested, so it can't
+be called on its own), the full SVG render, and the Photos database reader. The `examples/`
+drafts and previews are the regression check for those.
