@@ -1,5 +1,5 @@
 .app {
-  max-width: 40rem;
+  max-width: 80rem;
   margin: 0 auto;
   padding: 2rem 1.5rem;
 }
@@ -101,9 +101,68 @@ button:disabled {
   }
 }
 
-.editor-placeholder {
+.draft-summary {
   margin-top: 1.5rem;
-  padding: 1rem;
-  border: 1px dashed var(--border);
+  color: var(--muted);
+}
+
+.draft-summary p {
+  margin: 0;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.editor-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.editor-main {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.editor-main .leg-list {
+  max-height: 34rem;
+  overflow-y: auto;
+}
+
+@media (max-width: 60rem) {
+  .editor-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.validation-summary {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border);
   border-radius: 6px;
+}
+
+.validation-ok {
+  color: var(--muted);
+}
+
+.validation-errors {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.validation-errors p,
+.validation-errors ul {
+  margin: 0;
 }
