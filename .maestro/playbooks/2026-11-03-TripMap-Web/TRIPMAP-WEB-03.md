@@ -46,7 +46,7 @@ Rules for every task:
 
 - [x] Create `web/src/types/trip.ts` with TypeScript types `Trip`, `Stop`, `Leg`, `Stats`, `Mode` (`"drive" | "train" | "boat" | "flight"`), `StopKind` (`"major" | "minor" | "hidden"`), and `LatLon = [number, number]`. A `Leg.via` item is `string | LatLon`. Match the JSON shape in `docs/api.md` and `docs/trip-format.md`. Verification: `npm run build` succeeds.
 
-- [ ] Create `web/src/components/PhotosGate.tsx`. It takes `children` and renders them only when the status is ok. It shows the checking, failure, and retry states above. Verification: `web/src/components/PhotosGate.test.tsx` mocks the client and checks three cases: checking text first, children rendered when ok, and the message plus a working "Check again" button when not ok. The retry must call the status function a second time.
+- [x] Create `web/src/components/PhotosGate.tsx`. It takes `children` and renders them only when the status is ok. It shows the checking, failure, and retry states above. Verification: `web/src/components/PhotosGate.test.tsx` mocks the client and checks three cases: checking text first, children rendered when ok, and the message plus a working "Check again" button when not ok. The retry must call the status function a second time.
 
 - [ ] Create `web/src/components/DateForm.tsx` with the validation and busy states described above. Export a pure `validateRange(start, end)` function returning `string | null` per field, and test it in `web/src/components/DateForm.test.ts`: missing start, end before start, a 61-day span, and a valid 60-day span.
 
