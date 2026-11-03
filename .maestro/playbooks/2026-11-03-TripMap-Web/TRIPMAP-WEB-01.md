@@ -36,7 +36,7 @@ Rules for every task:
 
 - [x] Add `dump_trip_yaml(trip: dict) -> str` at module level. It produces the same text that `cmd_draft` writes today, including the header comments, the commented-out lines for disabled legs, and the "flights there and home are commented out" note. `cmd_draft` calls `build_trip` then `dump_trip_yaml`. Verification: rerun the four draft commands from the baseline task into `~/.cache/tripmap/after/` and run `cmp` against each baseline file. Any difference is a regression. Fix it before continuing. Note that the Italy photo count can differ from the committed `examples/italy.yaml`, because photos change. Compare against the baseline you captured, not the committed file.
 
-- [ ] Move the nested `mode()` function, the `by_train` function, and the `Node` class out of `cmd_draft` to module level. Give them explicit parameters: `classify_hop(a, b, geo, stations, airports) -> str`, `by_train(a, b, geo, stations, airports) -> bool`. They must behave identically. Verification: the draft commands in the baseline still produce byte-identical YAML with `cmp`.
+- [x] Move the nested `mode()` function, the `by_train` function, and the `Node` class out of `cmd_draft` to module level. Give them explicit parameters: `classify_hop(a, b, geo, stations, airports) -> str`, `by_train(a, b, geo, stations, airports) -> bool`. They must behave identically. Verification: the draft commands in the baseline still produce byte-identical YAML with `cmp`.
 
 - [ ] Add `render_png(trip: dict, size: int = 4000, photo_size: tuple[int, int] | None = None, with_day_trips: bool = False) -> bytes`. It calls `build_svg` then `screenshot` into a temporary PNG, reads the bytes, deletes the temp file, and returns the bytes. `cmd_render` uses it, but the CLI still writes files to disk and still produces the same file names and preview behavior. Verification: `uv run tripmap render ~/.cache/tripmap/regression-baseline/italy.yaml --size 800 --out ~/.cache/tripmap/after/` produces a PNG, and `render_png` returns bytes that start with the PNG signature `\x89PNG`.
 
@@ -84,6 +84,13 @@ Caveat for the `cmp` checks in later tasks: during the Ireland baseline the Over
 - Signature: `dump_trip_yaml(trip, *, photo_count=None, start=None, end=None, filename="trip.yaml") -> str`. The keyword-only extras exist only because the first two header lines name the photo count, the date range and the output file, none of which live in `trip`. `cmd_draft` passes them, so its file is unchanged. Called as plain `dump_trip_yaml(trip)` (the API's case), the first line reads `# tripmap trip. Edit freely, then:` and the render hint names `trip.yaml`.
 - Legs missing `enabled` count as enabled (`l.get("enabled", True)`), matching the JSON default in the shared context. A disabled leg is written as `# - {...}`, and any disabled leg adds the "flights there and home are commented out" note, as before.
 - Verified: the three drafts rerun into `~/.cache/tripmap/after/` are `cmp`-identical to the baseline (Ireland, Italy, PNW). (The task says "four"; the baseline's fourth file is the Italy render, which task 6 covers.) `uv run pytest`: 45 passed. A synthetic trip with one disabled leg dumps to YAML that `yaml.safe_load` reads back with one active leg.
+
+### classify_hop / by_train (2026-11-03, task 5)
+
+- `Node` was already module-level (moved in task 2), so only `mode()` and `by_train` moved. They are now `classify_hop(a, b, geo, stations, airports)` and `by_train(a, b, geo, stations, airports)` just above `build_trip`, bodies unchanged apart from the explicit parameters.
+- The nested `is_airport` closure became `is_airport(n, airports)` at module level, since `by_train` needs it. `by_train` takes `geo` only to match the requested signature; it does not use it.
+- Both still reach `rail` and `drivable` through module globals, so tests can stub `tripmap.rail` / `tripmap.drivable` with monkeypatch.
+- Verified: `uv run pytest` 45 passed; Ireland, Italy and PNW drafts rerun into `~/.cache/tripmap/after/` are `cmp`-identical to the baseline.
 
 ## Manual Follow-Up (not executed by Auto Run)
 

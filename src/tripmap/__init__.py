@@ -388,6 +388,49 @@ class Node:
         return (self.lat, self.lon)
 
 
+def is_airport(n, airports):
+    return bool(n.ref and n.ref.get("note") == "airport") or any(km(n.ll, a) < 5 for a in airports)
+
+
+def by_train(a, b, geo, stations, airports):
+    """Is a -> b a train ride? Needs a rail route, plus a speed no car manages or a
+    departure and arrival photographed at stations."""
+    if a.sea or b.sea or is_airport(a, airports) or is_airport(b, airports):
+        return False
+    dist = km(a.ll, b.ll)
+    if dist < 25 or dist > 700:
+        return False
+    fast = a.t and b.t0 and dist > 40 and TRAIN_KMH[0] < dist / max((b.t0 - a.t) / 3600, 0.1) < TRAIN_KMH[1]
+    at_stations = all(n.raw and stations.nearest(n.raw if n is a else n.raw0, STATION_KM) for n in (a, b))
+    if not (fast or at_stations):
+        return False
+    ends = [stations.nearest(n.raw or n.ll, 3) or n.ll for n in (a, b)]
+    path = rail(ends)
+    return bool(path) and sum(km(p, q) for p, q in zip(path, path[1:])) < 1.6 * dist + 20
+
+
+def classify_hop(a, b, geo, stations, airports):
+    """The travel mode of one hop between two consecutive route nodes."""
+    dist = km(a.ll, b.ll)
+    if by_train(a, b, geo, stations, airports):
+        return "train"
+    if a.t and b.t and dist > 200 and dist / max((b.t - a.t) / 3600, 0.1) > 130:
+        return "flight"
+    if dist > 900:
+        return "flight"
+    if a.sea and b.sea:
+        return "boat"
+    coastal = all(n.sea or geo.coast_km(n.lat, n.lon) < 5 for n in (a, b))
+    if a.sea or b.sea:
+        return "boat" if coastal else "drive"
+    if dist > 25 and not drivable(a.ll, b.ll):
+        return "boat" if coastal else "flight" if dist > 300 else "drive"
+    ma, mb = geo.classify_strict(a.lat, a.lon), geo.classify_strict(b.lat, b.lon)
+    if ma is not None and mb is not None and ma != mb:  # different islands/continents
+        return "flight" if dist > 80 else "boat"
+    return "drive"
+
+
 def build_trip(library, start: dt.date, end: dt.date, title: str | None = None) -> tuple[dict, dict]:
     """Detect the route of the trip between two dates from the Photos library.
 
@@ -554,25 +597,6 @@ def build_trip(library, start: dt.date, end: dt.date, title: str | None = None) 
 
     airports = [s["at"] for s in stops if s.get("note") == "airport"]
 
-    def is_airport(n):
-        return bool(n.ref and n.ref.get("note") == "airport") or any(km(n.ll, a) < 5 for a in airports)
-
-    def by_train(a, b):
-        """Is a -> b a train ride? Needs a rail route, plus a speed no car manages or a
-        departure and arrival photographed at stations."""
-        if a.sea or b.sea or is_airport(a) or is_airport(b):
-            return False
-        dist = km(a.ll, b.ll)
-        if dist < 25 or dist > 700:
-            return False
-        fast = a.t and b.t0 and dist > 40 and TRAIN_KMH[0] < dist / max((b.t0 - a.t) / 3600, 0.1) < TRAIN_KMH[1]
-        at_stations = all(n.raw and stations.nearest(n.raw if n is a else n.raw0, STATION_KM) for n in (a, b))
-        if not (fast or at_stations):
-            return False
-        ends = [stations.nearest(n.raw or n.ll, 3) or n.ll for n in (a, b)]
-        path = rail(ends)
-        return bool(path) and sum(km(p, q) for p, q in zip(path, path[1:])) < 1.6 * dist + 20
-
     # 4. per-day node sequences
     first_day, last_day = dates[0], dates[-1]
     legs = []
@@ -622,27 +646,7 @@ def build_trip(library, start: dt.date, end: dt.date, title: str | None = None) 
         prev_night = d
 
         # 5. segment modes, merged into legs
-        def mode(a, b):
-            dist = km(a.ll, b.ll)
-            if by_train(a, b):
-                return "train"
-            if a.t and b.t and dist > 200 and dist / max((b.t - a.t) / 3600, 0.1) > 130:
-                return "flight"
-            if dist > 900:
-                return "flight"
-            if a.sea and b.sea:
-                return "boat"
-            coastal = all(n.sea or geo.coast_km(n.lat, n.lon) < 5 for n in (a, b))
-            if a.sea or b.sea:
-                return "boat" if coastal else "drive"
-            if dist > 25 and not drivable(a.ll, b.ll):
-                return "boat" if coastal else "flight" if dist > 300 else "drive"
-            ma, mb = geo.classify_strict(a.lat, a.lon), geo.classify_strict(b.lat, b.lon)
-            if ma is not None and mb is not None and ma != mb:  # different islands/continents
-                return "flight" if dist > 80 else "boat"
-            return "drive"
-
-        modes = [mode(a, b) for a, b in zip(seq, seq[1:])]
+        modes = [classify_hop(a, b, geo, stations, airports) for a, b in zip(seq, seq[1:])]
         # photos taken from the train are only route hints: the hops either side of one ride the train too
         for _ in range(len(modes)):
             changed = False
