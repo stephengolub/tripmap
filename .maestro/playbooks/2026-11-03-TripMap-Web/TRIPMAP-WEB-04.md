@@ -42,7 +42,7 @@ Rules for every task:
 
 - [x] Create `web/src/trip/geo.ts` with `haversineKm(a, b)`, `resolveVia(trip, via)` (returns a `LatLon` for a stop name or a point, or `null` for an unknown name), and `sortByDistance(options, from)`. Verification: `web/src/trip/geo.test.ts` checks Dublin to Galway is about 190 km, that an unknown name resolves to `null`, and that sorting puts the nearest first.
 
-- [ ] Create `web/src/trip/validate.ts` with `validateTrip(trip)` returning a list of `{legIndex, viaIndex, message}` for unknown names, only for enabled legs. Verification: `web/src/trip/validate.test.ts` covers an unknown name, a disabled leg with an unknown name (no error), and a valid trip (empty list).
+- [x] Create `web/src/trip/validate.ts` with `validateTrip(trip)` returning a list of `{legIndex, viaIndex, message}` for unknown names, only for enabled legs. Verification: `web/src/trip/validate.test.ts` covers an unknown name, a disabled leg with an unknown name (no error), and a valid trip (empty list).
 
 - [ ] Create `web/src/components/TripMap.tsx` using react-leaflet's `MapContainer`, `TileLayer` with the OSM URL and attribution, `Marker` with `draggable`, and `Polyline`. Props: `trip`, `onAction` (dispatches reducer actions), and `addMode` boolean. Use a `divIcon` for pins and stars. Verification: `web/src/components/TripMap.test.tsx` renders the map with a two-stop trip and checks that the tile layer URL contains `tile.openstreetmap.org` and that two marker elements render. Leaflet needs DOM APIs, so mock `ResizeObserver` in the test setup if the test fails without it.
 
@@ -61,6 +61,7 @@ Rules for every task:
 - Task 1 (reducer): state is `TripState = Trip & { error?: string }`, so `useReducer(tripReducer, trip)` works as written. A refused action returns the same trip with `error` set; any accepted action clears it. `tripOf(state)` strips `error` before sending to the API. Index fields are named `legIndex` / `viaIndex` (`moveVia` uses `from`/`to`).
 - Extra rules the spec implied: `renameStop` refuses an empty or already-taken name (it would silently merge two stops' references); `addStop` de-duplicates names ("New stop 2"); out-of-range indices are refused with `error`. Added a `setStopKind` action for the StopList kind select (task 7), which the action list did not name.
 - Task 2 (geo): `sortByDistance` is generic over anything with `at`; with `from` null it keeps the input order, and ties keep input order. `resolveVia` takes `Pick<Trip,'stops'>` so the combobox can pass just the stop list.
+- Task 3 (validate): `validateTrip` exports a `ValidationError` type and takes `Pick<Trip,'stops'|'legs'>`. Only string `via` entries are checked; `[lat, lon]` points always pass.
 
 ## Manual Follow-Up (not executed by Auto Run)
 
