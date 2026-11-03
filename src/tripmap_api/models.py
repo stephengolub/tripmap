@@ -3,9 +3,11 @@ field names as the trip YAML (see docs/trip-format.md), plus `enabled` on each l
 import datetime as dt
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Trip = dict[str, Any]
+
+MAX_DRAFT_DAYS = 60
 
 
 class PhotosStatus(BaseModel):
@@ -20,6 +22,14 @@ class DraftRequest(BaseModel):
     start: dt.date
     end: dt.date
     title: str | None = None
+
+    @model_validator(mode="after")
+    def check_range(self):
+        if self.end < self.start:
+            raise ValueError("end is before start")
+        if (self.end - self.start).days > MAX_DRAFT_DAYS:
+            raise ValueError(f"the range is over {MAX_DRAFT_DAYS} days")
+        return self
 
 
 class DraftResponse(BaseModel):
