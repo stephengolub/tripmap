@@ -15,11 +15,14 @@
     "node": ">=22.5"
   },
   "scripts": {
-    "build": "tsc -b tsconfig.json",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json && esbuild src/cli.ts --bundle --platform=node --format=esm --target=node22 --external:@resvg/resvg-js --outfile=dist/cli.js --banner:js=\"import{createRequire as __createRequire}from'module';const require=__createRequire(import.meta.url);\" && node -e \"require('fs').chmodSync('dist/cli.js', 0o755)\"",
     "test": "vitest run",
     "prepack": "node scripts/copy-web-dist.mjs"
   },
   "dependencies": {
-    "@tripmap/core": "*"
+    "@resvg/resvg-js": "^2.6.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

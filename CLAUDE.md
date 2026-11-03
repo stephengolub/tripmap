@@ -15,7 +15,11 @@ gate (`docs/parity.md`); git history keeps it.
 - `packages/core` (`@tripmap/core`): types, YAML, detection, geometry, `buildSvg`. It must run
   in Node AND the browser. Node-only code lives under `packages/core/src/node/` (Photos reader,
   resvg rasterizer, disk cache, HTTP); the browser bundle never imports from it.
-- `packages/cli` (`tripmap`, the npm package and `bin`, version in its `package.json`):
+- `packages/cli` (`tripmap`, the npm package and `bin`, version in its `package.json`). It is bundled
+  with esbuild into one `dist/cli.js`, which inlines `@tripmap/core`; `@resvg/resvg-js` is the only
+  runtime dependency. The bundle banner defines `require` with `createRequire`, because the `yaml`
+  package calls `require` inside an ESM bundle. Verify a change by packing and installing the
+  tarball in an empty directory, not only by running the workspace build.
   `draft`, `render`, `serve`, and the one-shot hosted-mode listener. `trips` is parsed but not
   implemented yet.
 - `packages/web` (`@tripmap/web`): Vite + React + TypeScript editor with a Leaflet map.
