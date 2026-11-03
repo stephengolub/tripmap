@@ -331,3 +331,60 @@ describe('recovery after a refresh', () => {
     expect(screen.queryByRole('region', { name: 'Stops' })).toBeNull()
   })
 })
+
+describe('App build modes', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  // Re-import App (and its mocked client) with VITE_MODE set, so mode.ts re-reads it.
+  async function loadApp(mode: 'local' | 'hosted') {
+    vi.stubEnv('VITE_MODE', mode)
+    vi.resetModules()
+    const client = await import('./api/client')
+    vi.mocked(client.getPhotosStatus).mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    const { default: Fresh } = await import('./App')
+    return { Fresh, client }
+  }
+
+  it('local mode gates the Detect form on Photos and drafts through the client', async () => {
+    const { Fresh, client } = await loadApp('local')
+    vi.mocked(client.draftTrip).mockResolvedValue({
+      trip: ireland,
+      stats: { photo_count: 5, overnight_names: ['Dublin', 'Galway'], quick_names: [], hidden_names: [], leg_counts: { drive: 1 } },
+    })
+    const user = userEvent.setup()
+    render(<Fresh />)
+
+    expect(screen.getByText('Checking Photos access...')).toBeInTheDocument()
+    await user.type(await screen.findByLabelText('From'), '2026-05-01')
+    await user.type(screen.getByLabelText('To'), '2026-05-04')
+    await user.click(screen.getByRole('button', { name: 'Detect route' }))
+    expect(client.draftTrip).toHaveBeenCalledWith('2026-05-01', '2026-05-04')
+    expect(client.getPhotosStatus).toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Make command' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Open YAML' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save YAML' })).toBeInTheDocument()
+  })
+
+  it('hosted mode shows the command panel instead of the Photos gate', async () => {
+    const { Fresh, client } = await loadApp('hosted')
+    render(<Fresh />)
+
+    expect(screen.getByRole('button', { name: 'Make command' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Detect route' })).toBeNull()
+    expect(screen.queryByText('Checking Photos access...')).toBeNull()
+    expect(client.getPhotosStatus).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Open YAML' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save YAML' })).toBeInTheDocument()
+
+    // A pasted trip opens in the editor, like Open YAML does.
+    vi.mocked(client.importYaml).mockResolvedValue({ trip: ireland })
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Or paste the trip YAML'), 'title: Sample')
+    await user.click(screen.getByRole('button', { name: 'Load pasted YAML' }))
+    await screen.findByRole('listitem', { name: 'Galway' })
+    expect(screen.getByTestId('file-name')).toHaveTextContent('tripmap.yaml')
+  })
+})

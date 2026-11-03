@@ -3,6 +3,8 @@ import { draftTrip, exportYaml, importYaml } from './api/client'
 import DateForm from './components/DateForm'
 import Editor from './components/Editor'
 import PhotosGate from './components/PhotosGate'
+import HostedPanel from './hosted/HostedPanel'
+import { MODE } from './mode'
 import { clearRecovery, loadRecovery, saveRecovery } from './recovery'
 import type { Stats, Trip } from './types/trip'
 import './App.css'
@@ -148,10 +150,15 @@ function App() {
           onDismiss={() => setSession((s) => s && { ...s, restoredAt: null })}
         />
       )}
-      {/* Only drafting reads Photos; an opened YAML trip edits and renders without it. */}
-      <PhotosGate>
-        <DateForm onSubmit={handleDraft} />
-      </PhotosGate>
+      {MODE === 'hosted' ? (
+        // No server here: the trip comes from the user's terminal (or a paste).
+        <HostedPanel onLoaded={(filename, trip) => startSession(filename, trip, null)} />
+      ) : (
+        // Only drafting reads Photos; an opened YAML trip edits and renders without it.
+        <PhotosGate>
+          <DateForm onSubmit={handleDraft} />
+        </PhotosGate>
+      )}
       {session && (
         <>
           {session.stats && <DraftSummary stats={session.stats} />}
