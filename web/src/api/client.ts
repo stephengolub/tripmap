@@ -1,3 +1,5 @@
+import type { LatLon, Mode, Stats, Trip } from '../types/trip'
+
 // Typed calls to tripmap-api. Every path is relative (/api/...): the Vite dev server
 // proxies it to 127.0.0.1:8000, so the browser never talks to the backend port directly.
 
@@ -9,9 +11,7 @@ export type PhotosStatus = {
   message?: string | null
 }
 
-// Replaced by the shared types in types/trip.ts.
-export type Trip = Record<string, unknown>
-export type DraftResponse = { trip: Trip; stats: Record<string, unknown> }
+export type DraftResponse = { trip: Trip; stats: Stats }
 
 export type RenderOptions = {
   size?: number
@@ -103,9 +103,9 @@ export async function exportYaml(_trip: Trip): Promise<string> {
 }
 
 export async function suggestMode(
-  _from: [number, number],
-  _to: [number, number],
+  _from: LatLon,
+  _to: LatLon,
   _elapsedHours?: number,
-): Promise<{ mode: string; reason: string }> {
+): Promise<{ mode: Mode; reason: string }> {
   return notYet('suggestMode')
 }
