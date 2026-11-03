@@ -1,0 +1,27 @@
+# tripmap draft from 42 photos, 2001-02-03 to 2001-02-05. Edit freely, then:
+#   tripmap render synthetic.yaml --photo <background photo>
+#
+# stops: kind = major (red pin) | minor (gold star) | hidden (route passes, no marker)
+#        label = auto | n | s | e | w | ne | nw | se | sw | none
+#        rename freely; legs refer to stops by name, so rename in both places
+# legs:  mode = drive (real roads) | train (real rail lines, train icon) | boat (dashed, ship icon)
+#               | flight (dashed arc, plane icon)
+#        via = stop names or [lat, lon] route hints, in travel order
+#        day_trip: true legs are left out of the plain version and drawn in
+#        the "-with-day-trips" version
+# basemap: auto | island (whole island, e.g. Ireland) | country | region (cropped, faded edges)
+
+title: "Synthetic – Testland"
+basemap: auto
+
+stops:
+  - {name: "Alpha Port", kind: major, at: [1.0312, -2.5000], label: auto}  # 2 nights
+  - {name: "Bêta \"Cove\"", kind: minor, at: [1.5000, -2.0000], label: ne}  # 7 photos, Feb 4
+  - {name: "Gamma Field", kind: hidden, at: [-0.2500, 3.7500], label: auto}  # 0 photos,  (layover; hidden by default)
+
+# The flights there and home are commented out (usually just a layover).
+# Uncomment them to draw them; their stops are already listed, hidden.
+legs:
+  # - {date: 2001-02-03, mode: flight, day_trip: false, via: ["Gamma Field", "Alpha Port"]}
+  - {date: 2001-02-04, mode: drive, day_trip: true, via: ["Alpha Port", [1.234, -2.123], "Bêta \"Cove\"", "Alpha Port"]}
+  - {date: 2001-02-05, mode: boat, day_trip: false, via: ["Alpha Port", [1.062, -2.438], "Bêta \"Cove\""]}

@@ -3,3 +3,7 @@ __pycache__/
 .DS_Store
 build/
 dist/
+node_modules/
+packages/*/dist/
+test-results/
+*.tsbuildinfo
