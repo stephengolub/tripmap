@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { runDraft, type DraftDeps } from './draft.ts'
+import { startServe } from './serve.ts'
 
 export const DEFAULT_PORT = 8787
 
@@ -20,7 +21,7 @@ commands:
           detect a trip's route from photo GPS and write an editable YAML (stdout without -o)
   render  TRIP [--photo FILE] [--size N] [--out DIR] [--day-trips]
           draw a trip YAML as transparent PNG overlay(s)
-  serve   [--port P]
+  serve   [--port P] [--library PATH]
           run the local web app on 127.0.0.1 (default port ${DEFAULT_PORT})
 
   --version  print the version
@@ -40,7 +41,7 @@ export type Command =
       listen?: { port: number; token: string }
     }
   | { cmd: 'render'; trip: string; photo?: string; size: number; out?: string; dayTrips: boolean }
-  | { cmd: 'serve'; port: number }
+  | { cmd: 'serve'; port: number; library: string }
 
 /** A bad command line. `main` prints the message and the usage, then exits with code 2. */
 export class UsageError extends Error {
@@ -164,8 +165,11 @@ export function parseCliArgs(argv: string[], env: NodeJS.ProcessEnv = process.en
       }
     }
     case 'serve': {
-      const { values } = strict(() => parseArgs({ args: rest, strict: true, options: { port: { type: 'string' } } }))
-      return { cmd: 'serve', port: port(values.port, DEFAULT_PORT) }
+      const { values } = strict(() => parseArgs({ args: rest, strict: true, options: {
+        port: { type: 'string' },
+        library: { type: 'string' },
+      } }))
+      return { cmd: 'serve', port: port(values.port, DEFAULT_PORT), library: values.library ?? defaultLibrary(env) }
     }
     default:
       throw new UsageError(`unknown command "${cmd}"`)
@@ -191,10 +195,30 @@ export async function main(argv: string[], deps: DraftDeps = {}): Promise<number
       return 0
     case 'draft':
       return runDraft(command, deps)
+    case 'serve':
+      return runServe(command.port, command.library)
     default:
       console.error(`tripmap: "${command.cmd}" is not implemented yet`)
       return 1
   }
+}
+
+/** Run the local server until interrupted. */
+async function runServe(portNumber: number, library: string): Promise<number> {
+  let serving
+  try {
+    serving = await startServe({ port: portNumber, library })
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code
+    console.error(`tripmap: cannot listen on 127.0.0.1:${portNumber} (${code === 'EADDRINUSE' ? 'port is busy' : code ?? (e as Error).message})`)
+    return 1
+  }
+  console.error(`Serving tripmap on http://127.0.0.1:${serving.port} (Ctrl-C to stop)`)
+  await new Promise<void>((resolve) => {
+    for (const sig of ['SIGINT', 'SIGTERM'] as const) process.once(sig, () => resolve())
+  })
+  await serving.close()
+  return 0
 }
 
 /** True when this module is the program being run (directly or through the npm bin symlink). */

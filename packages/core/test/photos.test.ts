@@ -17,7 +17,7 @@ vi.mock('node:sqlite', async (importOriginal) => {
 })
 
 const { DatabaseSync } = await import('node:sqlite')
-const { APPLE_EPOCH, PhotosError, localIsoFromTs, readGeotaggedPhotos } = await import('../src/node/photos.ts')
+const { APPLE_EPOCH, PhotosError, countGeotaggedPhotos, localIsoFromTs, readGeotaggedPhotos } = await import('../src/node/photos.ts')
 
 // Invented library: synthetic coordinates and an arbitrary date, nothing from Photos.
 let lib: string
@@ -44,6 +44,17 @@ beforeEach(() => {
 })
 
 afterEach(() => rmSync(lib, { recursive: true, force: true }))
+
+describe('countGeotaggedPhotos', () => {
+  it('counts only non-trashed, non-0,0 photos, from a temp copy', () => {
+    expect(countGeotaggedPhotos(lib)).toBe(1)
+    expect(opened).not.toContain(live)
+  })
+
+  it('throws not_found for a missing library', () => {
+    expect(() => countGeotaggedPhotos(join(lib, 'nope'))).toThrow(expect.objectContaining({ code: 'not_found' }))
+  })
+})
 
 describe('readGeotaggedPhotos', () => {
   it('returns only non-trashed, non-0,0 photos with local time from the offset', () => {

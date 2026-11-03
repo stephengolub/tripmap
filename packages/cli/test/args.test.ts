@@ -91,8 +91,8 @@ describe('render', () => {
 describe('serve', () => {
   it('defaults to port 8787', () => {
     expect(DEFAULT_PORT).toBe(8787)
-    expect(parseCliArgs(['serve'], env)).toEqual({ cmd: 'serve', port: 8787 })
-    expect(parseCliArgs(['serve', '--port', '9000'], env)).toEqual({ cmd: 'serve', port: 9000 })
+    expect(parseCliArgs(['serve'], env)).toEqual({ cmd: 'serve', port: 8787, library: LIBRARY })
+    expect(parseCliArgs(['serve', '--port', '9000', '--library', '/x'], env)).toEqual({ cmd: 'serve', port: 9000, library: '/x' })
   })
 })
 

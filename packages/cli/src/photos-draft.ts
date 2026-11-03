@@ -4,13 +4,17 @@
 import { dumpTripYaml } from '@tripmap/core'
 import { createServices, draftFromLibrary } from '@tripmap/core/node'
 import type { DraftRequest, DraftResult } from './draft.ts'
+import type { DetectFn } from './serve.ts'
 
-export async function draftFromPhotos(req: DraftRequest): Promise<DraftResult> {
+/** The trip and stats for a date range: what `POST /api/detect` returns. */
+export const detectFromPhotos: DetectFn = async (req) => {
   const services = createServices({ log: req.log })
   await services.loadGeodata()
-  const { trip, stats } = await draftFromLibrary(
-    req.library, { from: req.from, to: req.to, title: req.title, log: req.log }, services,
-  )
+  return draftFromLibrary(req.library, { from: req.from, to: req.to, title: req.title, log: req.log }, services)
+}
+
+export async function draftFromPhotos(req: DraftRequest): Promise<DraftResult> {
+  const { trip, stats } = await detectFromPhotos(req)
   const yaml = dumpTripYaml(trip, { photoCount: stats.photo_count, start: req.from, end: req.to, filename: req.filename })
 
   // cmd_draft's summary in src/tripmap/__init__.py.

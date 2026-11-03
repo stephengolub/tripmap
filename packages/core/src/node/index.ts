@@ -2,7 +2,7 @@
 // src/index.ts, so the browser bundle cannot pull in node:sqlite or node:fs.
 
 export type { Photo, PhotosErrorCode } from './photos.ts'
-export { PhotosError, readGeotaggedPhotos } from './photos.ts'
+export { PhotosError, countGeotaggedPhotos, readGeotaggedPhotos } from './photos.ts'
 export type { CachePaths, NodeServices, ServicesOptions } from './services.ts'
 export { DEFAULT_USER_AGENT, cachePaths, createServices, defaultCacheDir } from './services.ts'
 export type { NetOptions, Piece } from './net.ts'

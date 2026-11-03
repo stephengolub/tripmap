@@ -27,13 +27,16 @@ export const FDA_MESSAGE =
   'macOS blocked reading the Photos library. Grant Full Disk Access to the app running ' +
   'tripmap (your terminal) in System Settings > Privacy & Security > Full Disk Access, then restart it.'
 
+const GEOTAGGED = `
+    z.ZTRASHEDSTATE = 0
+    AND z.ZLATITUDE BETWEEN -90 AND 90 AND z.ZLONGITUDE BETWEEN -180 AND 180
+    AND NOT (z.ZLATITUDE = 0 AND z.ZLONGITUDE = 0)`
+
 const SQL = `
   SELECT z.ZDATECREATED + ${APPLE_EPOCH} AS ts, z.ZLATITUDE AS lat, z.ZLONGITUDE AS lon,
          a.ZTIMEZONEOFFSET AS off, a.ZREVERSELOCATIONDATA AS blob
   FROM ZASSET z LEFT JOIN ZADDITIONALASSETATTRIBUTES a ON a.Z_PK = z.ZADDITIONALATTRIBUTES
-  WHERE z.ZTRASHEDSTATE = 0
-    AND z.ZLATITUDE BETWEEN -90 AND 90 AND z.ZLONGITUDE BETWEEN -180 AND 180
-    AND NOT (z.ZLATITUDE = 0 AND z.ZLONGITUDE = 0)
+  WHERE ${GEOTAGGED}
     AND z.ZDATECREATED + ${APPLE_EPOCH} BETWEEN ? AND ?
   ORDER BY 1`
 
@@ -59,8 +62,11 @@ function fsCode(e: unknown): string | undefined {
   return (e as NodeJS.ErrnoException | undefined)?.code
 }
 
-// fromMs/toMs bound ZDATECREATED (UTC). Python's defaults were t0=0, t1=4e9 seconds.
-export function readGeotaggedPhotos(library: string, fromMs: number = 0, toMs: number = 4e12): Photo[] {
+const COUNT_SQL = `SELECT COUNT(*) AS n FROM ZASSET z WHERE ${GEOTAGGED}`
+
+/** Run `query` against a temp copy of the library's Photos.sqlite (with -wal/-shm), then delete
+ *  the copy. Errors become PhotosErrors with the API's reason codes. */
+function withDatabaseCopy<T>(library: string, query: (con: DatabaseSync) => T): T {
   const db = join(library, 'database', 'Photos.sqlite')
   const notFound = () =>
     new PhotosError('not_found', 'No Photos library found (missing database/Photos.sqlite).')
@@ -83,25 +89,33 @@ export function readGeotaggedPhotos(library: string, fromMs: number = 0, toMs: n
       if (fsCode(e) === 'ENOENT') throw notFound()
       throw new PhotosError('unreadable', `The Photos database could not be copied (${fsCode(e) ?? 'error'}).`)
     }
-
-    let rows: Record<string, unknown>[]
     try {
       const con = new DatabaseSync(join(tmp, 'Photos.sqlite'))
       try {
-        rows = con.prepare(SQL).all(fromMs / 1000, toMs / 1000) as Record<string, unknown>[]
+        return query(con)
       } finally {
         con.close()
       }
     } catch (e) {
       throw new PhotosError('unreadable', `The Photos database copy could not be read (${(e as Error)?.name ?? 'Error'}).`)
     }
-
-    return rows.map((r) => {
-      const ts = Number(r.ts)
-      const blob = r.blob == null ? null : new Uint8Array(r.blob as Uint8Array)
-      return { ts, localIso: localIsoFromTs(ts, Number(r.off ?? 0) || 0), lat: Number(r.lat), lon: Number(r.lon), blob }
-    })
   } finally {
     rmSync(tmp, { recursive: true, force: true })
   }
+}
+
+// fromMs/toMs bound ZDATECREATED (UTC). Python's defaults were t0=0, t1=4e9 seconds.
+export function readGeotaggedPhotos(library: string, fromMs: number = 0, toMs: number = 4e12): Photo[] {
+  const rows = withDatabaseCopy(library, (con) =>
+    con.prepare(SQL).all(fromMs / 1000, toMs / 1000) as Record<string, unknown>[])
+  return rows.map((r) => {
+    const ts = Number(r.ts)
+    const blob = r.blob == null ? null : new Uint8Array(r.blob as Uint8Array)
+    return { ts, localIso: localIsoFromTs(ts, Number(r.off ?? 0) || 0), lat: Number(r.lat), lon: Number(r.lon), blob }
+  })
+}
+
+/** How many geotagged photos the library holds: the count behind `/api/photos/status`. */
+export function countGeotaggedPhotos(library: string): number {
+  return withDatabaseCopy(library, (con) => Number((con.prepare(COUNT_SQL).get() as { n: unknown }).n))
 }
