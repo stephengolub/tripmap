@@ -40,7 +40,7 @@ Rules for every task:
 
 - [x] Add `render_png(trip: dict, size: int = 4000, photo_size: tuple[int, int] | None = None, with_day_trips: bool = False) -> bytes`. It calls `build_svg` then `screenshot` into a temporary PNG, reads the bytes, deletes the temp file, and returns the bytes. `cmd_render` uses it, but the CLI still writes files to disk and still produces the same file names and preview behavior. Verification: `uv run tripmap render ~/.cache/tripmap/regression-baseline/italy.yaml --size 800 --out ~/.cache/tripmap/after/` produces a PNG, and `render_png` returns bytes that start with the PNG signature `\x89PNG`.
 
-- [ ] Add `tests/test_core.py`. Monkeypatch `tripmap.load_photos` to return a small synthetic list of `(ts, local_datetime, lat, lon, blob)` tuples for three nights in two towns, with `blob=None`. Stub `OSM.town_centre`, `OSM.stations`, and `OSM.landmarks` to deterministic values, and stub `road_km`, `osrm`, and `rail` to no-op answers, so the test is offline. Assert that `build_trip` returns the expected number of overnight stops and that `dump_trip_yaml` output loads with `yaml.safe_load` back to a dict with the same stops and legs. Add a test that `build_trip` raises `TripError` when there are fewer than two photos. Verification: `uv run pytest tests/test_core.py -q` passes.
+- [x] Add `tests/test_core.py`. Monkeypatch `tripmap.load_photos` to return a small synthetic list of `(ts, local_datetime, lat, lon, blob)` tuples for three nights in two towns, with `blob=None`. Stub `OSM.town_centre`, `OSM.stations`, and `OSM.landmarks` to deterministic values, and stub `road_km`, `osrm`, and `rail` to no-op answers, so the test is offline. Assert that `build_trip` returns the expected number of overnight stops and that `dump_trip_yaml` output loads with `yaml.safe_load` back to a dict with the same stops and legs. Add a test that `build_trip` raises `TripError` when there are fewer than two photos. Verification: `uv run pytest tests/test_core.py -q` passes.
 
 - [ ] Add `tests/test_classify.py` covering `classify_hop`: a 900 km hop returns `flight`, a 60 km land hop with a drivable route returns `drive`, and two sea-level nodes return `boat`. Build the `Node` objects directly and stub `drivable` and `geo` where needed. Verification: `uv run pytest -q` passes.
 
@@ -99,6 +99,13 @@ Caveat for the `cmp` checks in later tasks: during the Ireland baseline the Over
 - Two additions beyond the spec: `render_png` takes an optional `geo` so the API can reuse a loaded basemap across calls; and `_render` drops legs with `enabled: false` before drawing, matching a commented-out YAML leg. YAML-loaded trips have no `enabled` key, so the CLI is unaffected.
 - `render_png` does not normalize stop names to `str` the way `cmd_render` does for YAML input; JSON trips from the API already carry string names.
 - Verified: `uv run tripmap render .../regression-baseline/italy.yaml --size 800 --out ~/.cache/tripmap/after/` gives an `italy.png` that is `cmp`-identical to the baseline render. `render_png(italy, size=400, photo_size=(4, 3))` returns 52,942 bytes starting `\x89PNG`, IHDR 400x300. No `tripmap-*` temp files left in `$TMPDIR`. `uv run pytest`: 45 passed.
+
+### tests/test_core.py (2026-11-03, task 7)
+
+- Synthetic trip: two nights in town A, a drive on day 3, one night in town B (41 photos, `blob=None`). With no place data the bases are named by the fallback, `Stop 1` / `Stop 2`.
+- Stubs beyond the spec: `tripmap.Geo` is replaced by a `FakeGeo` (all inland, one landmass, 100 km from the coast), because the real `Geo()` downloads Natural Earth on a cold cache. The shared `cache` fixture redirects `CACHE` so `OSM()` reads no real geocode cache. `osrm` returns a slightly longer-than-straight road so `drivable` is true.
+- Tests: overnights (2, nights `[2, 1]`), stats, the single drive leg; `dump_trip_yaml` round-trips through `yaml.safe_load` with the same stops and legs; a disabled leg is written commented out and drops out on load; `TripError` for 0 and 1 photos.
+- Verified: `uv run pytest tests/test_core.py -q` 5 passed, also with `urlopen`/`urlretrieve` patched to raise (so it is truly offline). Full suite: 50 passed.
 
 ## Manual Follow-Up (not executed by Auto Run)
 
