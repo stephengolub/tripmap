@@ -54,11 +54,18 @@ Rules for every task:
 
 - [x] Remove the Vite template's demo content (`App.css` contents, the logo assets) so the app shows only the gate and the form. Verification: `rg -l "vite.svg|react.svg" web/src` prints nothing.
 
-- [ ] Run `cd web && npm test && npm run build`. Both must pass. Commit locally with `Add React shell with Photos check and date entry`. Do not push.
+- [x] Run `cd web && npm test && npm run build`. Both must pass. Commit locally with `Add React shell with Photos check and date entry`. Do not push.
 
 ## Notes
 
-(The agent fills this in.)
+- Scaffold came from create-vite 9.3.3: Vite 8, React 19, TypeScript 7, Vitest 5. `npm` from the asdf 22.14.0 install.
+- `npm test` is `vitest run --passWithNoTests`. `src/test/setup.ts` imports `@testing-library/jest-dom/vitest` and runs `cleanup()` after each test. Test files sit beside their sources and are type-checked by `tsc -b`.
+- `client.ts`: every call goes through `request()`, which turns a non-2xx into `ApiError(status, message)` using FastAPI's `detail` (a string, or the `msg`s of a 422 list joined with `; `), and a network failure into `ApiError(0, ...)`. `renderTrip`, `exportYaml`, `suggestMode` are stubs that throw "not yet implemented" for later phases.
+- `PhotosGate` uses a ref so React StrictMode's double mount in dev still sends one status request. A thrown status call (server down) shows the same failure state with "Check again".
+- `DateForm` takes `onSubmit(start, end): Promise<void>` and owns the busy, elapsed-seconds and error states; a rejection's message is what the user sees. Field messages only show once a date has been typed, so the empty form starts clean. `validateRange` returns `{start, end}`, each `string | null`; the 60-day limit matches the server (`end - start > 60` is rejected).
+- `App` holds `trip` and `stats` in state. The placeholder's stop count is overnight + quick + hidden names; the leg count is the sum of `leg_counts`.
+- Removed the template's logos, hero image, `public/` icons and favicon, and replaced `App.css`, `index.css` and `web/README.md`.
+- Live check: with `tripmap-api` and `vite` running, `GET http://localhost:5173/api/photos/status` came back `ok: true` through the proxy. Python suite still 93 passed.
 
 ## Manual Follow-Up (not executed by Auto Run)
 

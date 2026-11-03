@@ -16,6 +16,10 @@ trip-file reference is `docs/trip-format.md`, and how draft decides is `docs/how
 - `uv run pytest` runs `tests/` offline. The network-facing tests stub `urllib` and redirect
   `tripmap.CACHE` to a temp directory via the `cache` fixture in `tests/conftest.py`. Add
   new HTTP-touching code under the same stubs.
+- `web/` is the Vite + React + TypeScript front end (Leaflet map). Node is the asdf 22.14.0
+  install. `cd web && npm test` (Vitest, offline, mocks the API client) and `npm run build`.
+  It reaches `tripmap-api` only through the dev server's `/api` proxy; the trip lives in
+  browser state, never on the server.
 - Not unit-tested: the nested detection logic in `cmd_draft`, the full SVG render, and the
   Photos reader. `examples/` is the regression check for those.
 
