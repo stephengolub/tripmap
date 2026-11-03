@@ -48,7 +48,7 @@ Rules for every task:
 
 - [x] Create `web/src/components/PhotosGate.tsx`. It takes `children` and renders them only when the status is ok. It shows the checking, failure, and retry states above. Verification: `web/src/components/PhotosGate.test.tsx` mocks the client and checks three cases: checking text first, children rendered when ok, and the message plus a working "Check again" button when not ok. The retry must call the status function a second time.
 
-- [ ] Create `web/src/components/DateForm.tsx` with the validation and busy states described above. Export a pure `validateRange(start, end)` function returning `string | null` per field, and test it in `web/src/components/DateForm.test.ts`: missing start, end before start, a 61-day span, and a valid 60-day span.
+- [x] Create `web/src/components/DateForm.tsx` with the validation and busy states described above. Export a pure `validateRange(start, end)` function returning `string | null` per field, and test it in `web/src/components/DateForm.test.ts`: missing start, end before start, a 61-day span, and a valid 60-day span.
 
 - [ ] Wire `web/src/App.tsx` so that `PhotosGate` wraps a `DateForm`. On a successful draft, store the returned `trip` in an `App` state variable and render a placeholder `<section data-testid="editor-placeholder">` showing the stop and leg counts from `stats`. Phase 04 replaces that placeholder. Verification: `web/src/App.test.tsx` mocks the client and checks the full flow: status ok, then the form, then a draft call, then the placeholder shows the counts.
 
