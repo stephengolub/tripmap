@@ -1,0 +1,51 @@
+# tripmap draft from 810 photos, 2026-04-29 to 2026-05-08. Edit freely, then:
+#   tripmap render ireland.yaml --photo <background photo>
+#
+# stops: kind = major (red pin) | minor (gold star) | hidden (route passes, no marker)
+#        label = auto | n | s | e | w | ne | nw | se | sw | none
+#        rename freely; legs refer to stops by name, so rename in both places
+# legs:  mode = drive (real roads) | boat (dashed, ship icon) | flight (dashed arc, plane icon)
+#        via = stop names or [lat, lon] route hints, in travel order
+#        day_trip: true legs are left out of the plain version and drawn in
+#        the "-with-day-trips" version
+# basemap: auto | island (whole island, e.g. Ireland) | country | region (cropped, faded edges)
+
+title: "Trip Apr 29 – May 8, 2026"
+basemap: auto
+
+stops:
+  - {name: "Dublin", kind: major, at: [53.3494, -6.2606], label: auto}  # 3 nights
+  - {name: "Killarney", kind: major, at: [52.0596, -9.5053], label: auto}  # 2 nights
+  - {name: "Dingle", kind: major, at: [52.1408, -10.2687], label: auto}  # 1 night
+  - {name: "Galway", kind: major, at: [53.2744, -9.0491], label: auto}  # 3 nights
+  - {name: "Rock of Cashel", kind: minor, at: [52.5200, -7.8901], label: auto}  # 50 photos, May 1
+  - {name: "Muckross Abbey", kind: minor, at: [52.0259, -9.4933], label: auto}  # 17 photos, May 2
+  - {name: "Muckross", kind: minor, at: [52.0040, -9.5055], label: auto}  # 17 photos, May 2
+  - {name: "Ladies View", kind: minor, at: [51.9677, -9.5933], label: auto}  # 14 photos, May 2
+  - {name: "Cleo Gallery", kind: minor, at: [51.8790, -9.5847], label: auto}  # 16 photos, May 2
+  - {name: "Kissane Sheep Farm", kind: minor, at: [51.9487, -9.6329], label: auto}  # 30 photos, May 2
+  - {name: "Inch", kind: minor, at: [52.1413, -9.9827], label: auto}  # 18 photos, May 3
+  - {name: "Faill Móir", kind: minor, at: [52.1244, -10.4604], label: auto}  # 37 photos, May 3
+  - {name: "Coumaleague", kind: hidden, at: [52.1391, -10.4138], label: auto}  # 5 photos, May 3 (brief stop; hidden by default)
+  - {name: "Tarbert", kind: hidden, at: [52.5901, -9.3617], label: auto}  # 3 photos, May 4 (brief stop; hidden by default)
+  - {name: "Kilfearagh", kind: minor, at: [52.6736, -9.6879], label: auto}  # 45 photos, May 4
+  - {name: "Cliffs of Moher", kind: minor, at: [52.9721, -9.4298], label: auto}  # 24 photos, May 4
+  - {name: "Poulnabrone Dolmen", kind: minor, at: [53.0484, -9.1399], label: auto}  # 15 photos, May 4
+  - {name: "Dun Aengus", kind: minor, at: [53.1272, -9.7657], label: auto}  # 26 photos, May 5
+  - {name: "Bungabhla", kind: minor, at: [53.1413, -9.8256], label: auto}  # 9 photos, May 5
+  - {name: "The Seven Churches", kind: hidden, at: [53.1453, -9.7764], label: auto}  # 3 photos, May 5 (brief stop; hidden by default)
+  - {name: "Kelp Factory", kind: hidden, at: [53.1375, -9.7150], label: auto}  # 5 photos, May 5 (brief stop; hidden by default)
+  - {name: "Victorian Walled Garden", kind: minor, at: [53.5609, -9.8897], label: auto}  # 65 photos, May 6
+  - {name: "Station House Museum", kind: hidden, at: [53.4881, -10.0193], label: auto}  # 4 photos, May 6 (brief stop; hidden by default)
+  - {name: "Powerscourt Estate", kind: minor, at: [53.1843, -6.1857], label: auto}  # 68 photos, May 7
+
+legs:
+  - {date: 2026-05-01, mode: drive, day_trip: false, via: ["Dublin", "Rock of Cashel", "Killarney"]}
+  - {date: 2026-05-02, mode: drive, day_trip: true, via: ["Killarney", "Muckross Abbey", "Muckross", "Ladies View", "Cleo Gallery", "Kissane Sheep Farm", "Killarney"]}
+  - {date: 2026-05-03, mode: drive, day_trip: false, via: ["Killarney", "Inch", [52.131, -10.389], "Faill Móir", "Coumaleague", "Dingle"]}
+  - {date: 2026-05-04, mode: drive, day_trip: false, via: ["Dingle", "Tarbert", "Kilfearagh", "Cliffs of Moher", [53.018, -9.135], "Poulnabrone Dolmen", "Galway"]}
+  - {date: 2026-05-05, mode: boat, day_trip: false, via: ["Galway", [53.251, -9.041], [53.238, -9.078], [53.228, -9.117], [53.224, -9.150], [53.202, -9.249], [53.118, -9.667]]}
+  - {date: 2026-05-05, mode: drive, day_trip: false, via: [[53.118, -9.667], "Dun Aengus", "Bungabhla", "The Seven Churches", "Kelp Factory", [53.119, -9.666]]}
+  - {date: 2026-05-05, mode: boat, day_trip: false, via: [[53.119, -9.666], [53.114, -9.657], [53.080, -9.522], [53.070, -9.506], [53.055, -9.470], [52.949, -9.468], [53.097, -9.353], [53.167, -9.254], "Galway"]}
+  - {date: 2026-05-06, mode: drive, day_trip: true, via: ["Galway", [53.506, -9.732], "Victorian Walled Garden", "Station House Museum", "Galway"]}
+  - {date: 2026-05-07, mode: drive, day_trip: false, via: ["Galway", "Powerscourt Estate", "Dublin"]}

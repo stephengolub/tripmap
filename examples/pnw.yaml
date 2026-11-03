@@ -1,0 +1,64 @@
+# tripmap draft from 675 photos, 2024-09-18 to 2024-09-30. Edit freely, then:
+#   tripmap render pnw.yaml --photo <background photo>
+#
+# stops: kind = major (red pin) | minor (gold star) | hidden (route passes, no marker)
+#        label = auto | n | s | e | w | ne | nw | se | sw | none
+#        rename freely; legs refer to stops by name, so rename in both places
+# legs:  mode = drive (real roads) | boat (dashed, ship icon) | flight (dashed arc, plane icon)
+#        via = stop names or [lat, lon] route hints, in travel order
+#        day_trip: true legs are left out of the plain version and drawn in
+#        the "-with-day-trips" version
+# basemap: auto | island (whole island, e.g. Ireland) | country | region (cropped, faded edges)
+
+title: "Alaska 2024"
+basemap: auto
+
+stops:
+  - {name: "San Antonio", kind: hidden, at: [29.4246, -98.4951], label: auto}  # 0 photos,  (layover; hidden by default)
+  - {name: "Seattle", kind: major, at: [47.6038, -122.3301], label: auto}  # 3 nights
+  - {name: "Victoria", kind: major, at: [48.4283, -123.3650], label: auto}  # 1 night
+  - {name: "North Bend", kind: minor, at: [47.4525, -121.7062], label: auto}  # 9 photos, Sep 21
+  - {name: "Tanner", kind: hidden, at: [47.4600, -121.7441], label: auto}  # 17 photos, Sep 21 (brief stop; hidden by default)
+  - {name: "Olallie State Park", kind: minor, at: [47.4474, -121.7023], label: auto}  # 59 photos, Sep 21
+  - {name: "Snoqualmie", kind: minor, at: [47.5319, -121.8379], label: auto}  # 18 photos, Sep 21
+  - {name: "Smith Cove Waterway", kind: minor, at: [47.6286, -122.3821], label: auto}  # 12 photos, Sep 23
+  - {name: "Sitka Cruise Ship Port", kind: minor, at: [57.1162, -135.3944], label: auto}  # 18 photos, Sep 25
+  - {name: "Sitka National Historical Park", kind: minor, at: [57.0494, -135.3264], label: auto}  # 33 photos, Sep 25
+  - {name: "Skagway", kind: minor, at: [59.4497, -135.3290], label: auto}  # 3 photos, Sep 26
+  - {name: "Goat Lake", kind: hidden, at: [59.5379, -135.2129], label: auto}  # 5 photos, Sep 26 (brief stop; hidden by default)
+  - {name: "Skagway (2)", kind: hidden, at: [59.5700, -135.2002], label: auto}  # 5 photos, Sep 26 (brief stop; hidden by default)
+  - {name: "Skagway (3)", kind: hidden, at: [59.6279, -135.1648], label: auto}  # 5 photos, Sep 26 (brief stop; hidden by default)
+  - {name: "59.829, -134.802", kind: minor, at: [59.8289, -134.8022], label: auto}  # 11 photos, Sep 26
+  - {name: "Skagway (4)", kind: hidden, at: [59.5701, -135.1999], label: auto}  # 7 photos, Sep 26 (brief stop; hidden by default)
+  - {name: "Skagway (5)", kind: hidden, at: [59.6279, -135.1646], label: auto}  # 6 photos, Sep 26 (brief stop; hidden by default)
+  - {name: "Tutshi Dog Sled Tours", kind: minor, at: [59.9567, -134.7079], label: auto}  # 65 photos, Sep 26
+  - {name: "59.830, -134.802", kind: hidden, at: [59.8304, -134.8019], label: auto}  # 5 photos, Sep 26 (brief stop; hidden by default)
+  - {name: "59.929, -134.768", kind: minor, at: [59.9295, -134.7681], label: auto}  # 9 photos, Sep 26
+  - {name: "Skagway Centennial Park", kind: minor, at: [59.4507, -135.3264], label: auto}  # 22 photos, Sep 26
+  - {name: "Douglas Island", kind: minor, at: [58.3245, -134.6194], label: auto}  # 45 photos, Sep 27
+  - {name: "Alaska State Museum", kind: minor, at: [58.2989, -134.4214], label: auto}  # 35 photos, Sep 27
+  - {name: "Sealaska Heritage Institute", kind: minor, at: [58.2984, -134.4048], label: auto}  # 8 photos, Sep 27
+  - {name: "58.260, -134.345", kind: minor, at: [58.2600, -134.3450], label: auto}  # 3 photos, Sep 27
+
+# The flights there and home are commented out (usually just a layover).
+# Uncomment them to draw them; their stops are already listed, hidden.
+legs:
+  # - {date: 2024-09-19, mode: drive, day_trip: false, via: [[29.564, -98.462], "San Antonio"]}
+  # - {date: 2024-09-20, mode: flight, day_trip: false, via: ["San Antonio", [33.435, -111.994], [47.443, -122.303]]}
+  - {date: 2024-09-20, mode: drive, day_trip: false, via: [[47.443, -122.303], "Seattle"]}
+  - {date: 2024-09-21, mode: drive, day_trip: true, via: ["Seattle", [47.578, -122.130], [47.496, -121.814], "North Bend", "Tanner", "Olallie State Park", "Tanner", "Olallie State Park", "Tanner", "Olallie State Park", "Snoqualmie", [47.590, -122.254], "Seattle"]}
+  - {date: 2024-09-23, mode: drive, day_trip: false, via: ["Seattle", "Smith Cove Waterway", [47.612, -122.386]]}
+  - {date: 2024-09-23, mode: boat, day_trip: false, via: [[47.612, -122.386], [47.676, -122.458], [47.722, -122.442], [48.017, -122.615]]}
+  - {date: 2024-09-23, mode: drive, day_trip: false, via: [[48.017, -122.615], [48.023, -122.620]]}
+  - {date: 2024-09-23, mode: boat, day_trip: false, via: [[48.023, -122.620], [48.207, -123.003], [48.023, -122.620]]}
+  - {date: 2024-09-24, mode: boat, day_trip: false, via: [[48.023, -122.620], [50.396, -129.226], [50.405, -129.242], [52.697, -132.679]]}
+  - {date: 2024-09-25, mode: boat, day_trip: false, via: [[52.697, -132.679], [56.930, -135.581], [57.125, -135.402]]}
+  - {date: 2024-09-25, mode: drive, day_trip: false, via: [[57.125, -135.402], "Sitka Cruise Ship Port", "Sitka National Historical Park", "Sitka Cruise Ship Port"]}
+  - {date: 2024-09-26, mode: boat, day_trip: false, via: ["Sitka Cruise Ship Port", "Skagway"]}
+  - {date: 2024-09-26, mode: drive, day_trip: false, via: ["Skagway", "Goat Lake", "Skagway (2)", "Skagway (3)", [59.822, -134.810], [59.538, -135.213], "59.829, -134.802", [59.564, -135.201], [59.829, -134.802], "Skagway (4)", "Skagway (5)", "Tutshi Dog Sled Tours", [59.665, -135.117], [59.800, -134.840], "59.830, -134.802", "59.929, -134.768", "Tutshi Dog Sled Tours", [59.589, -135.193], [59.964, -134.694], [59.454, -135.318], [59.885, -134.790], [59.455, -135.316], [59.775, -134.918], [59.616, -135.168], "Skagway Centennial Park"]}
+  - {date: 2024-09-26, mode: boat, day_trip: false, via: ["Skagway Centennial Park", [59.375, -135.366], "Skagway Centennial Park", [59.364, -135.369]]}
+  - {date: 2024-09-27, mode: boat, day_trip: false, via: [[59.364, -135.369], [58.767, -135.153], [58.300, -134.427]]}
+  - {date: 2024-09-27, mode: drive, day_trip: false, via: [[58.300, -134.427], "Douglas Island", "Alaska State Museum", "Sealaska Heritage Institute", "58.260, -134.345"]}
+  - {date: 2024-09-28, mode: boat, day_trip: false, via: ["58.260, -134.345", [51.234, -130.411], [51.222, -130.390], [51.213, -130.374]]}
+  - {date: 2024-09-29, mode: boat, day_trip: false, via: [[51.213, -130.374], "Victoria", [48.409, -123.405], [48.410, -123.403]]}
+  - {date: 2024-09-29, mode: drive, day_trip: false, via: [[48.410, -123.403], "Victoria"]}

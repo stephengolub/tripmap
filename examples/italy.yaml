@@ -1,0 +1,33 @@
+# tripmap draft from 708 photos, 2024-05-02 to 2024-05-08. Edit freely, then:
+#   tripmap render italy.yaml --photo <background photo>
+#
+# stops: kind = major (red pin) | minor (gold star) | hidden (route passes, no marker)
+#        label = auto | n | s | e | w | ne | nw | se | sw | none
+#        rename freely; legs refer to stops by name, so rename in both places
+# legs:  mode = drive (real roads) | boat (dashed, ship icon) | flight (dashed arc, plane icon)
+#        via = stop names or [lat, lon] route hints, in travel order
+#        day_trip: true legs are left out of the plain version and drawn in
+#        the "-with-day-trips" version
+# basemap: auto | island (whole island, e.g. Ireland) | country | region (cropped, faded edges)
+
+title: "Italy 2024"
+basemap: auto
+
+stops:
+  - {name: "Bologna", kind: major, at: [44.4938, 11.3426], label: auto}  # 2 nights
+  - {name: "Rome", kind: major, at: [41.8933, 12.4829], label: auto}  # 2 nights
+  - {name: "Florence", kind: major, at: [43.7698, 11.2556], label: auto}  # 2 nights
+  - {name: "Heathrow Terminal 5", kind: hidden, at: [51.4704, -0.4882], label: auto}  # 2 photos, May 2 (layover; hidden by default)
+  - {name: "Bologna Airport", kind: hidden, at: [44.5307, 11.2935], label: auto}  # 2 photos, May 8 (airport; hidden by default)
+  - {name: "Terminal 5", kind: hidden, at: [51.4701, -0.4778], label: auto}  # 6 photos, May 8 (layover; hidden by default)
+
+# The flights there and home are commented out (usually just a layover).
+# Uncomment them to draw them; their stops are already listed, hidden.
+legs:
+  # - {date: 2024-05-02, mode: flight, day_trip: false, via: ["Heathrow Terminal 5", [44.788, 10.286]]}
+  - {date: 2024-05-02, mode: drive, day_trip: false, via: [[44.788, 10.286], [44.529, 11.296], "Bologna"]}
+  - {date: 2024-05-03, mode: drive, day_trip: false, via: ["Bologna", "Florence", [42.974, 11.958], "Rome"]}
+  - {date: 2024-05-05, mode: drive, day_trip: false, via: ["Rome", "Florence"]}
+  - {date: 2024-05-07, mode: drive, day_trip: false, via: ["Florence", "Bologna"]}
+  - {date: 2024-05-08, mode: drive, day_trip: false, via: ["Bologna", "Bologna Airport"]}
+  # - {date: 2024-05-08, mode: flight, day_trip: false, via: ["Bologna Airport", "Terminal 5"]}
