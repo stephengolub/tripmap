@@ -54,7 +54,7 @@ Rules for every task:
 
 - [x] Replace the placeholder in `web/src/App.tsx` with an editor: `TripMap` and `LegList` side by side, `StopList` below, a toolbar with the Add stop button, and a validation summary. Route all edits through `useReducer(tripReducer, trip)`. Keep the phase 03 flow. Verification: `web/src/App.test.tsx` still passes, and a new test checks that a validation error for an unknown via name appears in the summary.
 
-- [ ] Run `cd web && npm test && npm run build`. Both must pass. Commit locally with `Add map and leg editor with OSM tiles and intelligent stop dropdowns`. Do not push.
+- [x] Run `cd web && npm test && npm run build`. Both must pass. Commit locally with `Add map and leg editor with OSM tiles and intelligent stop dropdowns`. Do not push.
 
 ## Notes
 
@@ -72,3 +72,4 @@ Rules for every task:
 
 - Drag a pin and a leg card around in the browser on a real trip and judge whether the dropdown ordering feels right.
 - Confirm the OSM attribution is legible at all zoom levels.
+- Task 9 (final check, 2026-11-03): `npm test` 11 files / 69 tests passed; `npm run build` passed (JS 394 kB, 120 kB gzip); `uv run pytest` 93 passed. Not pushed, per the phase rules.
