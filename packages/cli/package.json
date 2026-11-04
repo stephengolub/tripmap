@@ -3,6 +3,15 @@
   "version": "1.0.0",
   "description": "Turn a trip in your macOS Photos library into a transparent PNG route map",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stephengolub/tripmap.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://stephengolub.github.io/tripmap/",
+  "bugs": {
+    "url": "https://github.com/stephengolub/tripmap/issues"
+  },
   "type": "module",
   "bin": {
     "tripmap": "dist/cli.js"

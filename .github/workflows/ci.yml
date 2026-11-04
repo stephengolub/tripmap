@@ -1,0 +1,61 @@
+# Checks every push and pull request: typecheck, lint, unit tests, build, end-to-end
+# tests, and the npm package contents (no example GPS data may ship in the tarball).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint (web)
+        run: npm run lint -w @tripmap/web
+      - name: Unit tests
+        run: npm test
+      - name: Build (both web modes are checked by pages.yml)
+        run: npm run build
+      - name: Install Chromium for end-to-end tests
+        run: npx playwright install --with-deps chromium
+        working-directory: packages/web
+      - name: End-to-end tests
+        run: npm run test:e2e -w @tripmap/web
+      - name: npm package must not contain example trip data
+        run: |
+          npm pack -w tripmap --dry-run 2>&1 | tee pack.log
+          if grep -E 'examples/|\.yaml' pack.log; then
+            echo "The npm package lists example trip data. Fix the package files list." >&2
+            exit 1
+          fi
+      - name: Hosted build must not contain example trip data
+        run: |
+          VITE_MODE=hosted npm run build -w @tripmap/web
+          if grep -rl 'examples/' packages/web/dist; then
+            echo "The hosted build contains a reference to examples/." >&2
+            exit 1
+          fi
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: packages/web/playwright-report
+          if-no-files-found: ignore
