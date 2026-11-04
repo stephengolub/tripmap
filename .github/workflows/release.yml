@@ -1,0 +1,98 @@
+# Publishes the tripmap npm package when a version tag (v1.2.3) is pushed.
+#
+# Auth is npm trusted publishing (OIDC): there is no NPM_TOKEN secret. npm trusts this exact
+# workflow file in this repo, so the job's short-lived id-token is exchanged for a publish
+# right. Provenance is attached automatically. Trusted publishing must be configured on
+# npmjs.com for the package before the first run (see docs/releasing.md).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify the tagged commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: The tag must match the package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(node -p "require('./packages/cli/package.json').version")
+          if [ "$tag" != "$version" ]; then
+            echo "Tag v$tag does not match packages/cli/package.json version $version." >&2
+            exit 1
+          fi
+          echo "Releasing tripmap $version"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint (web)
+        run: npm run lint -w @tripmap/web
+      - name: Unit tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Install Chromium for end-to-end tests
+        run: npx playwright install --with-deps chromium
+        working-directory: packages/web
+      - name: End-to-end tests
+        run: npm run test:e2e -w @tripmap/web
+      - name: The package must not contain example trip data
+        run: |
+          npm pack -w tripmap --dry-run 2>&1 | tee pack.log
+          if grep -E 'examples/|\.yaml' pack.log; then
+            echo "The npm package lists example trip data. Fix the package files list." >&2
+            exit 1
+          fi
+
+  publish:
+    name: Publish to npm
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) and provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or newer; Node 22 ships npm 10.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@^11.5.1 && npm -v
+      - run: npm ci
+      - name: Build the package (prepack copies the web app)
+        run: npm run build
+      - name: Publish with provenance
+        # No NODE_AUTH_TOKEN: the OIDC exchange supplies the credential.
+        run: npm publish -w tripmap --access public --provenance
+
+  github-release:
+    name: Create the GitHub release
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create the release from the tag
+        run: gh release create "$GITHUB_REF_NAME" --title "tripmap $GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
