@@ -37,7 +37,7 @@ export function startListener(opts: ListenerOptions): Promise<Listener> {
 
   const server = createServer((req, res) => {
     corsHeaders(req, res, allowed)
-    const status = handle(req, res, opts)
+    const status = handle(req, res, opts, allowed)
     log(status === 200 ? `served trip (${status})` : `rejected request (${status})`)
     if (status === 200) {
       outcome = 'served'
@@ -73,8 +73,12 @@ function corsHeaders(req: IncomingMessage, res: ServerResponse, allowed: string[
 }
 
 /** Answer one request and return its status code. */
-function handle(req: IncomingMessage, res: ServerResponse, opts: ListenerOptions): number {
+function handle(req: IncomingMessage, res: ServerResponse, opts: ListenerOptions, allowed: string[]): number {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+  // A request from any other origin never gets the trip, and it does not use up the one-shot.
+  // Browsers always send Origin on cross-origin requests; a client with no Origin is not a page.
+  const origin = req.headers.origin
+  if (origin && !allowed.includes(origin)) return send(res, 403, 'forbidden\n')
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Methods', 'GET')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type')

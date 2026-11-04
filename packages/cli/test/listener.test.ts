@@ -47,6 +47,20 @@ describe('startListener', () => {
     expect(ALLOWED_ORIGINS).toEqual(['https://stephengolub.github.io', 'http://localhost:5173'])
   })
 
+  it('never serves the trip to another origin, and that request does not use up the listener', async () => {
+    const { port, done } = await start()
+    const foreign = await call(port, `/trip?token=${TOKEN}`, 'GET', { Origin: 'https://evil.example' })
+    expect(foreign.status).toBe(403)
+    expect(foreign.body).not.toContain('Test Trip')
+    expect(foreign.headers['access-control-allow-origin']).toBeUndefined()
+    // The listener is still open: the Pages origin with the right token gets the trip once.
+    const ok = await call(port, `/trip?token=${TOKEN}`, 'GET', { Origin: PAGES })
+    expect(ok.status).toBe(200)
+    expect(ok.body).toContain('Test Trip')
+    expect(await done).toBe('served')
+    expect(logs).toEqual(['rejected request (403)', 'served trip (200)'])
+  })
+
   it('rejects a wrong or missing token with 403 and no trip data', async () => {
     const { port } = await start()
     for (const path of [`/trip?token=ffffffffffffffff`, '/trip']) {
