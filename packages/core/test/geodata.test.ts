@@ -74,8 +74,25 @@ describe('ensureNaturalEarth', () => {
   it('leaves no file behind when the download fails', async () => {
     dir = mkdtempSync(join(tmpdir(), 'tripmap-ne-'))
     vi.stubGlobal('fetch', async () => new Response('nope', { status: 503 }))
-    await expect(ensureNaturalEarth(join(dir, 'ne'), 'ne_10m_land', { userAgent: 'test/0' })).rejects.toThrow('HTTP 503')
+    const err = await ensureNaturalEarth(join(dir, 'ne'), 'ne_10m_land', { userAgent: 'test/0', retry: { sleep: async () => {}, baseDelayMs: 1 } })
+      .catch((e: unknown) => e)
+    expect((err as Error).message).toContain('HTTP 503 from raw.githubusercontent.com after 4 attempts')
+    expect((err as Error).message).toContain('githubstatus.com')
     expect(existsSync(join(dir, 'ne', 'ne_10m_land.geojson'))).toBe(false)
+  })
+
+  it('retries a 503 and then saves the file', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'tripmap-ne-'))
+    const body = JSON.stringify({ features: [] })
+    let calls = 0
+    vi.stubGlobal('fetch', async () => (++calls === 1 ? new Response('busy', { status: 503 }) : new Response(body)))
+    const logs: string[] = []
+    const path = await ensureNaturalEarth(join(dir, 'ne'), 'ne_10m_land', {
+      userAgent: 'test/0', log: (l) => logs.push(l), retry: { sleep: async () => {}, baseDelayMs: 1 },
+    })
+    expect(calls).toBe(2)
+    expect(readFileSync(path, 'utf8')).toBe(body)
+    expect(logs.some((l) => /HTTP 503, retrying/.test(l))).toBe(true)
   })
 })
 

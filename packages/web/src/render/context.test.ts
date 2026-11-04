@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { browserRouteServices, loadRenderContext } from './context'
+import { MapDataError, browserRouteServices, loadRenderContext } from './context'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -19,9 +19,44 @@ describe('loadRenderContext', () => {
     expect(geo.countryPolygons).toHaveLength(1)
   })
 
-  it('fails with the HTTP status when a download fails', async () => {
-    const fetchFn = vi.fn(async () => json({}, 502))
-    await expect(loadRenderContext(fetchFn as unknown as typeof fetch)).rejects.toThrow('HTTP 502')
+  // Waits are recorded, not slept, so the retry tests run instantly.
+  const noWait = { sleep: async () => {}, baseDelayMs: 1 }
+
+  it('retries a 503 and succeeds on a later try', async () => {
+    let calls = 0
+    const fetchFn = vi.fn(async () => (++calls <= 2 ? json({}, 503) : json({ features: [land] })))
+    const { geo } = await loadRenderContext(fetchFn as unknown as typeof fetch, noWait)
+    expect(geo.countryPolygons).toHaveLength(1)
+    // Two 503s are shared across the three downloads (the first two requests), then three successes.
+    expect(fetchFn).toHaveBeenCalledTimes(5)
+  })
+
+  it('says what failed, which host, how many tries, and what to do, when every try fails', async () => {
+    const fetchFn = vi.fn(async () => json({}, 503))
+    const err = await loadRenderContext(fetchFn as unknown as typeof fetch, noWait).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(MapDataError)
+    const msg = (err as Error).message
+    expect(msg).toMatch(/Could not download the ne_10m_(admin_0_countries|land) map data/)
+    expect(msg).toContain('HTTP 503 from raw.githubusercontent.com after 4 attempts')
+    expect(msg).toContain('Trying again in a minute')
+    expect(msg).toContain('githubstatus.com')
+  })
+
+  it('says it could not reach the host on a network error, without the raw error text', async () => {
+    const fetchFn = vi.fn(async () => {
+      throw new TypeError('Failed to fetch')
+    })
+    const err = await loadRenderContext(fetchFn as unknown as typeof fetch, noWait).catch((e: unknown) => e)
+    expect((err as Error).message).toMatch(/^Could not reach raw\.githubusercontent\.com to download the ne_10m_\w+ map data \(4 attempts\)/)
+    expect((err as Error).message).toContain('Check your internet connection')
+  })
+
+  it('does not retry a 404, and reports it as not available', async () => {
+    const fetchFn = vi.fn(async () => json({}, 404))
+    const err = await loadRenderContext(fetchFn as unknown as typeof fetch, noWait).catch((e: unknown) => e)
+    // Each of the three files is requested once; none of them is retried.
+    expect(fetchFn).toHaveBeenCalledTimes(3)
+    expect((err as Error).message).toContain('not available from raw.githubusercontent.com (HTTP 404)')
   })
 })
 

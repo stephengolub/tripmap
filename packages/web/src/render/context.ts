@@ -1,14 +1,17 @@
 import {
+  FetchExhaustedError,
   Geo,
   NE_COUNTRIES,
   NE_LAND,
   NO_STATIONS,
   addOsrmPieces,
+  fetchWithRetry,
   naturalEarthUrl,
   type BasemapGeo,
   type Feature,
   type LandGeo,
   type OsrmRouteResponse,
+  type RetryOptions,
   type RoadPiece,
   type RouteServices,
 } from '@tripmap/core'
@@ -24,9 +27,43 @@ export type RenderContext = {
 
 type Fetch = typeof fetch
 
-async function features(name: string, fetchFn: Fetch): Promise<Feature[]> {
-  const res = await fetchFn(naturalEarthUrl(name))
-  if (!res.ok) throw new Error(`Downloading the ${name} map data failed (HTTP ${res.status}).`)
+// A map-data download that did not work, with a message the user can act on.
+export class MapDataError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options)
+    this.name = 'MapDataError'
+  }
+}
+
+const GITHUB_STATUS = 'https://www.githubstatus.com'
+
+async function features(name: string, fetchFn: Fetch, retry: RetryOptions): Promise<Feature[]> {
+  const url = naturalEarthUrl(name)
+  const host = new URL(url).host
+  let res: Response
+  try {
+    res = await fetchWithRetry(url, {}, { ...retry, fetchFn })
+  } catch (e) {
+    if (!(e instanceof FetchExhaustedError)) throw e
+    if (e.status === null) {
+      throw new MapDataError(
+        `Could not reach ${host} to download the ${name} map data (${e.attempts} attempts). ` +
+          `Check your internet connection and try again.`,
+        { cause: e },
+      )
+    }
+    throw new MapDataError(
+      `Could not download the ${name} map data: ${e.message}. Rendering needs it for the basemap, ` +
+        `so the map cannot be drawn yet. Trying again in a minute usually works; if it keeps failing, ` +
+        `check ${GITHUB_STATUS}.`,
+      { cause: e },
+    )
+  }
+  if (!res.ok) {
+    throw new MapDataError(
+      `The ${name} map data is not available from ${host} (HTTP ${res.status}). Trying again later may help.`,
+    )
+  }
   return ((await res.json()) as { features: Feature[] }).features
 }
 
@@ -59,12 +96,15 @@ export function browserRouteServices(fetchFn: Fetch = fetch): RouteServices {
   }
 }
 
-// Downloads the three Natural Earth files (the browser's HTTP cache keeps them after the
-// first render). Countries are fetched up front: Geo loads them synchronously.
-export async function loadRenderContext(fetchFn: Fetch = fetch): Promise<RenderContext> {
+// Downloads the three Natural Earth files. Countries are fetched up front: Geo loads them
+// synchronously. Each download retries transient failures (network, 429, 5xx) with backoff.
+export async function loadRenderContext(
+  fetchFn: Fetch = fetch,
+  retry: Pick<RetryOptions, 'attempts' | 'baseDelayMs' | 'sleep'> = {},
+): Promise<RenderContext> {
   const [countries, ...land] = await Promise.all([
-    features(NE_COUNTRIES, fetchFn),
-    ...NE_LAND.map((n) => features(n, fetchFn)),
+    features(NE_COUNTRIES, fetchFn, retry),
+    ...NE_LAND.map((n) => features(n, fetchFn, retry)),
   ])
   return { geo: new Geo(land.flat(), () => countries), services: browserRouteServices(fetchFn) }
 }

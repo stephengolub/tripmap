@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Geo, NE_COUNTRIES, NE_LAND, naturalEarthUrl, type Feature } from '../geodata.ts'
+import { FetchExhaustedError, fetchWithRetry, type RetryOptions } from '../retry.ts'
 import type { Log } from '../stops.ts'
 
 export { Geo, NE_COUNTRIES, NE_LAND, naturalEarthUrl, type Feature }
@@ -14,14 +15,26 @@ export { Geo, NE_COUNTRIES, NE_LAND, naturalEarthUrl, type Feature }
 export async function ensureNaturalEarth(
   neDir: string,
   name: string,
-  opts: { userAgent: string; log?: Log } = { userAgent: 'tripmap' },
+  opts: { userAgent: string; log?: Log; retry?: Pick<RetryOptions, 'attempts' | 'baseDelayMs' | 'sleep'> } = { userAgent: 'tripmap' },
 ): Promise<string> {
   const path = join(neDir, `${name}.geojson`)
   if (existsSync(path)) return path
   mkdirSync(neDir, { recursive: true })
   opts.log?.(`downloading ${name} (one-time)...`)
-  const res = await fetch(naturalEarthUrl(name), { headers: { 'User-Agent': opts.userAgent } })
-  if (!res.ok) throw new Error(`downloading ${name} failed: HTTP ${res.status}`)
+  let res: Response
+  try {
+    res = await fetchWithRetry(naturalEarthUrl(name), { headers: { 'User-Agent': opts.userAgent } }, {
+      ...opts.retry,
+      onRetry: ({ attempt, reason, delayMs }) =>
+        opts.log?.(`  ${name}: ${reason}, retrying in ${delayMs / 1000}s (attempt ${attempt + 1})`),
+    })
+  } catch (e) {
+    if (e instanceof FetchExhaustedError) {
+      throw new Error(`downloading ${name} failed: ${e.message}. Try again later, or check https://www.githubstatus.com.`)
+    }
+    throw e
+  }
+  if (!res.ok) throw new Error(`downloading ${name} failed: HTTP ${res.status} from ${new URL(naturalEarthUrl(name)).host}`)
   const tmp = `${path}.part`
   writeFileSync(tmp, Buffer.from(await res.arrayBuffer()))
   renameSync(tmp, path)
