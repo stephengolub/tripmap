@@ -4,7 +4,7 @@
 // Pure and synchronous: geodata comes in as `geo` and leg geometry as `routes` (see
 // routes.ts), so it runs in the browser. The style is fixed (CLAUDE.md); no options.
 
-import { pickBasemap, type BasemapGeo, type Geometry } from '../basemap.ts'
+import { pickBasemap, type BasemapGeo, type BasemapOptions, type Geometry } from '../basemap.ts'
 import type { Box, PolygonCoords } from '../geodata.ts'
 import { fmt1, midpoint, thin, type XY } from '../geo.ts'
 import type { LatLon, Trip } from '../types.ts'
@@ -85,8 +85,14 @@ const dist = (a: XY, b: XY) => Math.hypot(a[0] - b[0], a[1] - b[1])
 // `routes` is indexed like trip.legs (routeLegs makes it). A drawn leg without a route
 // falls back to what the Python draws when routing fails: straight road pieces, a smooth
 // train line off the rails, and a boat path bent out to sea from `geo`'s land.
+export type SvgOptions = {
+  // 'route' zooms to the route and fades the edges; 'basemap' (default) follows the trip's basemap setting.
+  frame?: 'basemap' | 'route'
+}
+
 export function buildSvg(
   trip: Trip, W: number, H: number, withDayTrips: boolean, geo: BasemapGeo, routes: (LegRoute | undefined)[] = [],
+  options: SvgOptions = {},
 ): { svg: string; mode: string } {
   const u = Math.max(W, H) / 4000
   const resolve = resolver(trip)
@@ -98,7 +104,11 @@ export function buildSvg(
     ...enabled.flatMap((l) => l.via.map(resolve)),
     ...trip.stops.filter((s) => (s.kind ?? 'minor') !== 'hidden').map((s): LatLon => [s.at[0], s.at[1]]),
   ]
-  const { mode, land, bbox } = pickBasemap(geo, trip.basemap ?? 'auto', allLL, W / H)
+  const basemapOpts: BasemapOptions = {
+    routes: enabled.map((l) => l.via.map(resolve)),
+    ...(options.frame ? { frame: options.frame } : {}),
+  }
+  const { mode, land, bbox } = pickBasemap(geo, trip.basemap ?? 'auto', allLL, W / H, basemapOpts)
   const P = new Canvas(W, H, bbox)
   const at = (ll: LatLon) => P.at(ll[0], ll[1])
 

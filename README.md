@@ -84,6 +84,7 @@ Draws a trip file as transparent PNG overlays.
 | `--out DIR` | next to the YAML | Output folder. |
 | `--size N` | `4000` | Long side of the PNG, in pixels. |
 | `--day-trips` | off | Write only the with-day-trips PNG. |
+| `--frame basemap\|route` | `basemap` | `basemap` follows the trip's `basemap` setting. `route` zooms to the route and fades the land at the edges, so the map is framed on the journey rather than the countries. |
 
 ### `tripmap serve`
 

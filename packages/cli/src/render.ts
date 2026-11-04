@@ -17,6 +17,8 @@ export interface RenderCommand {
   out?: string
   /** Only the with-day-trips variant. */
   dayTrips: boolean
+  /** 'route' zooms to the route and fades the edges; 'basemap' follows the trip's basemap setting. */
+  frame?: 'basemap' | 'route'
 }
 
 /** Land for the basemap and routing for the legs. */
@@ -160,7 +162,7 @@ export async function runRender(cmd: RenderCommand, deps: RenderDeps = {}): Prom
     let svg: string, mode: string
     try {
       const routes = await routeLegs(trip, withDayTrips, ctx.services, ctx.geo, log)
-      ;({ svg, mode } = buildSvg(trip, W, H, withDayTrips, ctx.geo, routes))
+      ;({ svg, mode } = buildSvg(trip, W, H, withDayTrips, ctx.geo, routes, { frame: cmd.frame ?? 'basemap' }))
     } catch (e) {
       if (e instanceof TripRenderError) return fail(`${cmd.trip}: ${e.message}`)
       throw e

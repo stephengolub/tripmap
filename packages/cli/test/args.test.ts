@@ -74,12 +74,16 @@ describe('draft', () => {
 describe('render', () => {
   it('has the Python defaults', () => {
     expect(parseCliArgs(['render', 'trip.yaml'], env)).toEqual({
-      cmd: 'render', trip: 'trip.yaml', photo: undefined, size: 4000, out: undefined, dayTrips: false,
+      cmd: 'render', trip: 'trip.yaml', photo: undefined, size: 4000, out: undefined, dayTrips: false, frame: 'basemap',
     })
+  })
+  it('reads --frame route, and rejects any other frame', () => {
+    expect(parseCliArgs(['render', 'trip.yaml', '--frame', 'route'], env)).toMatchObject({ cmd: 'render', frame: 'route' })
+    expect(usageError(['render', 'trip.yaml', '--frame', 'wide']).message).toMatch(/--frame must be basemap or route/)
   })
   it('reads every option', () => {
     expect(parseCliArgs(['render', 'trip.yaml', '--photo', 'bg.jpg', '--size', '2000', '--out', 'maps', '--day-trips'], env)).toEqual({
-      cmd: 'render', trip: 'trip.yaml', photo: 'bg.jpg', size: 2000, out: 'maps', dayTrips: true,
+      cmd: 'render', trip: 'trip.yaml', photo: 'bg.jpg', size: 2000, out: 'maps', dayTrips: true, frame: 'basemap',
     })
   })
   it('needs exactly one trip file', () => {

@@ -35,7 +35,7 @@ export { TripError, defaultTitle, draft } from './draft.ts'
 export type { Box, Feature, PolygonCoords, Ring } from './geodata.ts'
 export { Geo, NE_COUNTRIES, NE_LAND, naturalEarthUrl } from './geodata.ts'
 export type { BasemapGeo, BasemapResult, Geometry } from './basemap.ts'
-export { pickBasemap } from './basemap.ts'
+export { countriesAlong, densify, pickBasemap, CORRIDOR_KM, type BasemapOptions } from './basemap.ts'
 export type { BadgeKind, LabelBox, LandGeo, LegRoute, OsrmRouteResponse, RoadPiece, RouteServices } from './render/index.ts'
 export {
   Canvas, Labeler, NAVY, PIN, SIDES, STAR, TripRenderError, addOsrmPieces, badgeSvg, boatPath, buildSvg, drawnLegs, fmt0, landCut, lineD,

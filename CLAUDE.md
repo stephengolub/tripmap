@@ -99,6 +99,13 @@ gate (`docs/parity.md`); git history keeps it.
   is excluded. Train mode then spreads across in-between route-hint photos.
 - **Flights at the very start and end** of a trip are written commented out, as layovers.
   Stops used only by those flights are written as `kind: hidden`.
+- **Connecting countries are always drawn.** `countriesAlong` in `packages/core/src/basemap.ts` includes
+  every country whose outline is within `CORRIDOR_KM` (100 km) of the route, not only countries that
+  contain a trip point. Without this, countries the route crosses at sea (Central America) are missing
+  and the visited countries look like islands. Not behind a toggle.
+- **Zoom to route** (`frame: 'route'`, the CLI `--frame route`, the web "Zoom to route" box) forces the
+  region crop, tighter (half-size 0.6 of the route span, against 0.85 for the basemap crop), with the
+  faded edges. Default is `basemap`, so the committed examples render unchanged.
 - **Basemap modes:** `island`, `country`, `region` (a faded crop matching the photo's aspect
   ratio). All from Natural Earth 10m, downloaded to the cache on first run.
 - **The visual style is FIXED by Stephen's choice:** white roads, red pins for overnights,

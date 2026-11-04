@@ -42,7 +42,7 @@ export type Command =
       title?: string
       listen?: { port: number; token: string }
     }
-  | { cmd: 'render'; trip: string; photo?: string; size: number; out?: string; dayTrips: boolean }
+  | { cmd: 'render'; trip: string; photo?: string; size: number; out?: string; dayTrips: boolean; frame: 'basemap' | 'route' }
   | { cmd: 'serve'; port: number; library: string }
 
 /** A bad command line. `main` prints the message and the usage, then exits with code 2. */
@@ -155,8 +155,12 @@ export function parseCliArgs(argv: string[], env: NodeJS.ProcessEnv = process.en
         size: { type: 'string' },
         out: { type: 'string' },
         'day-trips': { type: 'boolean', default: false },
+        frame: { type: 'string' },
       } }))
       if (positionals.length !== 1) throw new UsageError('render needs exactly one TRIP file')
+      if (values.frame !== undefined && values.frame !== 'basemap' && values.frame !== 'route') {
+        throw new UsageError('--frame must be basemap or route')
+      }
       return {
         cmd: 'render',
         trip: positionals[0]!,
@@ -164,6 +168,7 @@ export function parseCliArgs(argv: string[], env: NodeJS.ProcessEnv = process.en
         size: number('--size', values.size, 4000, { int: true, min: 100, max: 20000 }),
         out: values.out,
         dayTrips: values['day-trips'] ?? false,
+        frame: values.frame === 'route' ? 'route' : 'basemap',
       }
     }
     case 'serve': {

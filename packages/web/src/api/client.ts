@@ -24,6 +24,8 @@ export type RenderOptions = {
   size?: number
   photo_size?: { width: number; height: number } | null
   with_day_trips?: boolean
+  // 'route' zooms to the route and fades the edges.
+  frame?: 'basemap' | 'route'
 }
 
 export class ApiError extends Error {
@@ -129,7 +131,7 @@ export async function renderTrip(
   try {
     const { geo, services } = await context()
     const routes = await routeLegs(t, withDayTrips, services, geo)
-    const { svg } = buildSvg(t, W, H, withDayTrips, geo, routes)
+    const { svg } = buildSvg(t, W, H, withDayTrips, geo, routes, { frame: opts.frame ?? 'basemap' })
     return await rasterizeSvgInBrowser(svg, W, H)
   } catch (e) {
     if (e instanceof TripRenderError) throw new ApiError(422, e.message)

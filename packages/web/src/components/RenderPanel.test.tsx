@@ -96,4 +96,18 @@ describe('RenderPanel', () => {
     render(<RenderPanel trip={broken} />)
     expect(screen.getByRole('button', { name: 'Render' })).toBeDisabled()
   })
+
+  it('asks for the route frame only when Zoom to route is on', async () => {
+    vi.mocked(renderTrip).mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
+    createObjectURL.mockReturnValue('blob:render-2')
+    const user = userEvent.setup()
+    render(<RenderPanel trip={trip} />)
+
+    await user.click(screen.getByRole('button', { name: 'Render' }))
+    expect(vi.mocked(renderTrip).mock.calls[0][1]).not.toHaveProperty('frame')
+
+    await user.click(screen.getByLabelText('Zoom to route'))
+    await user.click(screen.getByRole('button', { name: 'Render' }))
+    expect(vi.mocked(renderTrip).mock.calls[1][1]).toMatchObject({ frame: 'route' })
+  })
 })

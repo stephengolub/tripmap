@@ -19,6 +19,7 @@ type Props = {
 // image is held as an object URL in this tab only.
 export default function RenderPanel({ trip, photoSize, onRendered }: Props) {
   const [withDayTrips, setWithDayTrips] = useState(false)
+  const [zoomToRoute, setZoomToRoute] = useState(false)
   const [url, setUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +39,7 @@ export default function RenderPanel({ trip, photoSize, onRendered }: Props) {
       const png = await renderTrip(trip, {
         size: PREVIEW_SIZE,
         with_day_trips: withDayTrips,
+        ...(zoomToRoute ? { frame: 'route' as const } : {}),
         ...(photoSize ? { photo_size: photoSize } : {}),
       })
       const next = URL.createObjectURL(png)
@@ -65,6 +67,14 @@ export default function RenderPanel({ trip, photoSize, onRendered }: Props) {
             onChange={(e) => setWithDayTrips(e.target.checked)}
           />{' '}
           Show day trips
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={zoomToRoute}
+            onChange={(e) => setZoomToRoute(e.target.checked)}
+          />{' '}
+          Zoom to route
         </label>
         {url && (
           <a href={url} download="trip.png">
