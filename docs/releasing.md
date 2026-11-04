@@ -33,18 +33,14 @@ is published by hand.
 
    The workflow filename is matched exactly, so keep the file name.
 
-3. **Tag and release 1.0.0 by hand.** Do not push a `v1.0.0` tag and let the workflow run: it
-   would try to publish 1.0.0 again, and npm refuses to overwrite a version.
+3. **Tag 1.0.0.** Push the tag once the trusted publisher is set:
 
    ```sh
    git tag v1.0.0 && git push origin v1.0.0
-   gh release create v1.0.0 --title "tripmap v1.0.0" --generate-notes
    ```
 
-   Pushing the tag starts the release workflow, so push it only after the trusted publisher is
-   set. The workflow's publish job will fail on the existing version, which is expected for
-   1.0.0. Skip the tag push and run `gh release create v1.0.0 --target <sha> --generate-notes`
-   to avoid that failure.
+   The workflow runs. Its publish job sees that 1.0.0 is already on npm and skips the publish,
+   then creates the GitHub release for the tag. Nothing is published twice.
 
 4. **Optional hardening** on npmjs.com: under the package's publishing settings, require 2FA
    for publishing and disallow classic tokens, so a leaked token can't publish.
@@ -64,7 +60,8 @@ is published by hand.
    - **verify**: the tag must equal the package version, then typecheck, lint, unit tests, build,
      end-to-end tests, and the no-example-data check on the tarball.
    - **publish**: upgrades npm to 11.5.1 or newer (trusted publishing needs it), builds, and runs
-     `npm publish -w tripmap --access public --provenance`.
+     `npm publish -w tripmap --access public --provenance`. If that version is already on npm, it
+     skips the publish and the release still goes out.
    - **github-release**: creates the GitHub release for the tag with generated notes.
 
 Nothing publishes unless verify passes. A tag that doesn't match the version stops the run before

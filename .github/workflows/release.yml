@@ -79,9 +79,17 @@ jobs:
       - run: npm ci
       - name: Build the package (prepack copies the web app)
         run: npm run build
-      - name: Publish with provenance
-        # No NODE_AUTH_TOKEN: the OIDC exchange supplies the credential.
-        run: npm publish -w tripmap --access public --provenance
+      - name: Publish with provenance (skipped if this version is already on npm)
+        # No NODE_AUTH_TOKEN: the OIDC exchange supplies the credential. If the version is already
+        # published (the manual first release, or a re-run), skip the publish so the GitHub release
+        # step still runs. npm would otherwise refuse the duplicate.
+        run: |
+          version=$(node -p "require('./packages/cli/package.json').version")
+          if npm view "tripmap@$version" version >/dev/null 2>&1; then
+            echo "tripmap@$version is already on npm; skipping publish."
+            exit 0
+          fi
+          npm publish -w tripmap --access public --provenance
 
   github-release:
     name: Create the GitHub release
