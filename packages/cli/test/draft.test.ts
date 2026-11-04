@@ -6,7 +6,7 @@ import { runDraft, type DraftFn } from '../src/draft.ts'
 import type { Listener } from '../src/listener.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
-const STUB = fileURLToPath(new URL('./fixtures/draft-stub.mjs', import.meta.url))
+const STUB = fileURLToPath(new URL('./fixtures/draft-stub.ts', import.meta.url))
 const TOKEN = '0123456789abcdef'
 const YAML = 'title: "Synthetic"\nstops: []\nlegs: []\n'
 const draft: DraftFn = async () => ({ yaml: YAML, summary: ['  0 overnight stops: '] })
@@ -16,13 +16,11 @@ function capture() {
   return { io, stdout: (t: string) => { io.out += t }, stderr: (t: string) => { io.err += t } }
 }
 
-describe('draft --port --token (built CLI)', () => {
+describe('draft --port --token (CLI, run from source)', () => {
   let busy: Server
   let port: number
 
   beforeAll(async () => {
-    const build = spawnSync(process.execPath, [fileURLToPath(new URL('../../../node_modules/typescript/bin/tsc', import.meta.url)), '-b', 'tsconfig.json'], { cwd: ROOT, encoding: 'utf8' })
-    expect(build.status, build.stdout + build.stderr).toBe(0)
     busy = createServer()
     await new Promise<void>((resolve) => busy.listen(0, '127.0.0.1', resolve))
     port = (busy.address() as { port: number }).port
@@ -30,7 +28,7 @@ describe('draft --port --token (built CLI)', () => {
   afterAll(() => new Promise<void>((resolve) => busy.close(() => resolve())))
 
   it('prints the YAML to stdout and exits 1 when the port is busy', () => {
-    const run = spawnSync(process.execPath, [STUB, 'draft', '--from', '2020-01-01', '--to', '2020-01-02', '--port', String(port), '--token', TOKEN], { encoding: 'utf8', timeout: 30_000 })
+    const run = spawnSync(process.execPath, ['--import', 'tsx', STUB, 'draft', '--from', '2020-01-01', '--to', '2020-01-02', '--port', String(port), '--token', TOKEN], { cwd: ROOT, encoding: 'utf8', timeout: 30_000 })
     expect(run.status).toBe(1)
     expect(run.stdout).toContain('title: "Synthetic trip"')
     expect(run.stdout).toContain('legs:')

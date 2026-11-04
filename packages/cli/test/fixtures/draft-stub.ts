@@ -1,6 +1,6 @@
-// Runs the BUILT CLI (dist/cli.js) with the Photos draft stubbed by a synthetic trip, so the
-// draft path can be exercised in a real process without a Photos library or network.
-import { main } from '../../dist/cli.js'
+// Runs the CLI source (src/cli.ts, under tsx) with the Photos draft stubbed by a synthetic trip,
+// so the draft path runs in a real process without a Photos library or network.
+import { main } from '../../src/cli.ts'
 
 export const YAML = `# tripmap trip.
 title: "Synthetic trip"

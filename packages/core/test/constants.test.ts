@@ -1,36 +1,26 @@
-import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import * as C from '../src/constants.ts'
 
-// The Python package is removed in phase 10; until then the two must agree.
-const PY = new URL('../../../src/tripmap/__init__.py', import.meta.url)
-const havePy = existsSync(PY)
-if (!havePy) console.warn('src/tripmap/__init__.py is gone; skipping the Python constants comparison')
+// Values as they were in src/tripmap/__init__.py when the Python version was retired (the last
+// Python commit is 9fc7c66^). The Python source is no longer in the tree, so these literals are
+// the guard: a change to a rule constant has to change this file too, on purpose.
+describe('constants match the retired Python source', () => {
+  it.each([
+    ['STOP_RADIUS_KM', 0.8],
+    ['STOP_MIN_SECONDS', 480],
+    ['STOP_MIN_PHOTOS', 5],
+    ['BASE_MERGE_KM', 10],
+    ['NEAR_BASE_KM', 3],
+    ['WAYPOINT_KM', 12],
+    ['SEA_KM', 0.6],
+    ['STATION_KM', 0.4],
+  ] as const)('%s', (name, value) => expect(C[name]).toBe(value))
 
-describe.skipIf(!havePy)('constants match the Python source', () => {
-  const src = havePy ? readFileSync(PY, 'utf8') : ''
-  const pyValue = (name: string) => {
-    const m = src.match(new RegExp(`^${name} = (.+?)\\s*(#.*)?$`, 'm'))
-    if (!m) throw new Error(`${name} not found in the Python source`)
-    return m[1]
-  }
-
-  for (const name of ['STOP_RADIUS_KM', 'STOP_MIN_SECONDS', 'STOP_MIN_PHOTOS', 'BASE_MERGE_KM',
-    'NEAR_BASE_KM', 'WAYPOINT_KM', 'SEA_KM', 'STATION_KM'] as const) {
-    it(name, () => expect(C[name]).toBe(Number(pyValue(name))))
-  }
-
-  it('TRAIN_KMH', () => {
-    const m = pyValue('TRAIN_KMH').match(/^\((\d+), (\d+)\)$/)
-    expect(m).not.toBeNull()
-    expect(C.TRAIN_KMH).toEqual([Number(m![1]), Number(m![2])])
-  })
+  it('TRAIN_KMH', () => expect(C.TRAIN_KMH).toEqual([140, 330]))
 
   it('STATION_NAME', () => {
-    const m = src.match(/^STATION_NAME = re\.compile\(((?:\s*r"[^"]*")+),\s*re\.I\)/m)
-    expect(m).not.toBeNull()
-    const pattern = [...m![1].matchAll(/r"([^"]*)"/g)].map((p) => p[1]).join('')
-    expect(C.STATION_NAME.source).toBe(pattern)
+    const pattern = 'rail(way)? station|train station|bahnhof|hauptbahnhof|hbf|stazione|termini|estaci[oó]n de tren'
+    expect(C.STATION_NAME.source).toBe(`\\b(${pattern})\\b`)
     expect(C.STATION_NAME.flags).toContain('i')
   })
 })

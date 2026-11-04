@@ -16,7 +16,12 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # macOS covers the sips preview test, which Linux skips; Linux is the default target.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +30,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Fetch Natural Earth geodata (the real-data geodata test reads this cache)
+        shell: bash
+        run: |
+          dir="$HOME/.cache/tripmap/ne"
+          mkdir -p "$dir"
+          for name in ne_10m_land ne_10m_minor_islands ne_10m_admin_0_countries; do
+            curl -fsSL -o "$dir/$name.geojson" \
+              "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/$name.geojson"
+          done
       - name: Typecheck
         run: npm run typecheck
       - name: Lint (web)
@@ -33,8 +47,13 @@ jobs:
         run: npm test
       - name: Build (both web modes are checked by pages.yml)
         run: npm run build
-      - name: Install Chromium for end-to-end tests
+      - name: Install Chromium for end-to-end tests (Linux needs system libraries)
+        if: runner.os == 'Linux'
         run: npx playwright install --with-deps chromium
+        working-directory: packages/web
+      - name: Install Chromium for end-to-end tests (macOS)
+        if: runner.os == 'macOS'
+        run: npx playwright install chromium
         working-directory: packages/web
       - name: End-to-end tests
         run: npm run test:e2e -w @tripmap/web
@@ -56,6 +75,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.os }}
           path: packages/web/playwright-report
           if-no-files-found: ignore
