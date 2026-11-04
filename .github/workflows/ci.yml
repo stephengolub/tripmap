@@ -16,11 +16,13 @@ concurrency:
 
 jobs:
   check:
-    # macOS covers the sips preview test, which Linux skips; Linux is the default target.
+    # Every push and pull request runs on Linux. A manual run (workflow_dispatch) also runs on
+    # macOS, which covers the sips preview test that Linux skips. GitHub's macOS queue can
+    # stall, so macOS is never required for a push.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["ubuntu-latest","macos-latest"]') || fromJSON('["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
