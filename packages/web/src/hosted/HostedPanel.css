@@ -49,3 +49,103 @@
   border: 1px solid var(--border);
   border-radius: 6px;
 }
+
+/* Prerequisites and privacy: plain sections at the top of the hosted page. */
+.prereqs,
+.privacy {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.prereqs h2,
+.privacy h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.prereqs ul,
+.privacy ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.prereqs code {
+  font-size: 0.85em;
+}
+
+/* Accordion folds. <details> gives keyboard and screen-reader support for free. */
+.fold {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.fold > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold > summary::after {
+  content: 'Show';
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.fold[open] > summary::after {
+  content: 'Hide';
+}
+
+.fold-meta {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.fold-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 0.9rem 0.9rem;
+}
+
+.fold > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Dismissible notices: heading row with a dismiss button, and the restore row under them. */
+.notice-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.notice-dismiss {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.notice-restore {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}

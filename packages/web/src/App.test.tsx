@@ -382,7 +382,8 @@ describe('App build modes', () => {
     // A pasted trip opens in the editor, like Open YAML does.
     vi.mocked(client.importYaml).mockResolvedValue({ trip: ireland })
     const user = userEvent.setup()
-    await user.type(screen.getByLabelText('Or paste the trip YAML'), 'title: Sample')
+    await user.click(screen.getByText('Or paste the trip YAML'))
+    await user.type(screen.getByLabelText('Paste the trip YAML'), 'title: Sample')
     await user.click(screen.getByRole('button', { name: 'Load pasted YAML' }))
     await screen.findByRole('listitem', { name: 'Galway' })
     expect(screen.getByTestId('file-name')).toHaveTextContent('tripmap.yaml')
