@@ -60,4 +60,15 @@ describe('StopList', () => {
     expect(screen.queryByRole('listitem', { name: 'Cliffs' })).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
+
+  it('reports the stop whose row takes focus, and marks that row as current', async () => {
+    const onSelect = vi.fn()
+    const { rerender } = render(<StopList stops={trip.stops} onAction={vi.fn()} onSelect={onSelect} />)
+    await userEvent.click(screen.getByRole('textbox', { name: 'Name of Galway' }))
+    expect(onSelect).toHaveBeenCalledWith('Galway')
+
+    rerender(<StopList stops={trip.stops} onAction={vi.fn()} onSelect={onSelect} selected="Galway" />)
+    expect(screen.getByRole('listitem', { name: 'Galway' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('listitem', { name: 'Dublin' })).not.toHaveAttribute('aria-current')
+  })
 })

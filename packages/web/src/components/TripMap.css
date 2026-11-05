@@ -25,3 +25,11 @@
   background: none;
   border: 0;
 }
+
+/* The stop selected in the stop list: its marker is larger, glows, and draws on top. The inner
+   SVG is scaled, not the marker element, because Leaflet positions the marker with a transform. */
+.trip-marker-selected svg {
+  transform: scale(1.4);
+  transform-origin: 50% 90%;
+  filter: drop-shadow(0 0 3px #ffffff) drop-shadow(0 0 8px #1d3557);
+}

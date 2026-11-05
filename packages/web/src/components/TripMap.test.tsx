@@ -63,4 +63,15 @@ describe('TripMap framing', () => {
     expect(spy).toHaveBeenCalledTimes(1)
     spy.mockRestore()
   })
+
+  it('highlights only the selected stop marker, and draws it above the others', () => {
+    const { container, rerender } = render(<TripMap trip={trip} onAction={vi.fn()} addMode={false} />)
+    expect(container.querySelectorAll('.trip-marker-selected')).toHaveLength(0)
+
+    rerender(<TripMap trip={trip} onAction={vi.fn()} addMode={false} selected="Galway" />)
+    const selected = container.querySelectorAll<HTMLElement>('.trip-marker-selected')
+    expect(selected).toHaveLength(1)
+    expect(selected[0]).toHaveClass('trip-marker-minor') // Galway is a minor stop in this fixture
+    expect(selected[0].style.zIndex).not.toBe('')
+  })
 })

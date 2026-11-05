@@ -285,6 +285,19 @@ describe('recovery after a refresh', () => {
     expect(stopNames()).toEqual(['Dublin', 'Galway'])
   })
 
+  it('puts the stop list above the Add stop and Reframe toolbar, and the toolbar above the map', async () => {
+    status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
+    saveRecovery({ filename: 'ireland.yaml', base: ireland, current: ireland })
+    const { container } = render(<App />)
+
+    const stops = await screen.findByRole('region', { name: 'Stops' })
+    const toolbar = screen.getByRole('toolbar', { name: 'Map tools' })
+    const main = container.querySelector('.editor-main') as Element
+    expect(stops.compareDocumentPosition(toolbar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(toolbar.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Reframe map' })).toBeInTheDocument()
+  })
+
   it('lists the stops above the map and leg editor', async () => {
     status.mockResolvedValue({ ok: true, library: '/lib', geotagged_assets: 10 })
     saveRecovery({ filename: 'ireland.yaml', base: ireland, current: ireland })

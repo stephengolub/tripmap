@@ -13,6 +13,9 @@ type Props = {
   error?: string
   // Focus and select this stop's name field, e.g. a stop just added on the map.
   focusName?: string
+  // The stop to highlight on the map: the row that has focus.
+  selected?: string | null
+  onSelect?: (name: string) => void
 }
 
 function formatAt([lat, lon]: Stop['at']): string {
@@ -25,9 +28,11 @@ type RowProps = {
   onRemove: () => void
   error?: string
   focus: boolean
+  selected: boolean
+  onSelect?: (name: string) => void
 }
 
-function StopRow({ stop, onAction, onRemove, error, focus }: RowProps) {
+function StopRow({ stop, onAction, onRemove, error, focus, selected, onSelect }: RowProps) {
   // The name is edited locally and committed on blur or Enter, so a half-typed
   // name never renames every via reference keystroke by keystroke.
   const [draft, setDraft] = useState(stop.name)
@@ -44,7 +49,12 @@ function StopRow({ stop, onAction, onRemove, error, focus }: RowProps) {
   }
 
   return (
-    <li className="stop-row" aria-label={stop.name}>
+    <li
+      className={selected ? 'stop-row stop-row-selected' : 'stop-row'}
+      aria-label={stop.name}
+      aria-current={selected ? 'true' : undefined}
+      onFocus={() => onSelect?.(stop.name)}
+    >
       <input
         ref={input}
         className="stop-row-name"
@@ -83,7 +93,7 @@ function StopRow({ stop, onAction, onRemove, error, focus }: RowProps) {
 }
 
 // Every stop in the trip, hidden ones included: rename, change kind, remove.
-export default function StopList({ stops, onAction, error, focusName }: Props) {
+export default function StopList({ stops, onAction, error, focusName, selected = null, onSelect }: Props) {
   const [removing, setRemoving] = useState<string | null>(null)
 
   return (
@@ -100,6 +110,8 @@ export default function StopList({ stops, onAction, error, focusName }: Props) {
             }}
             error={removing === stop.name ? error : undefined}
             focus={focusName === stop.name}
+            selected={selected === stop.name}
+            onSelect={onSelect}
           />
         ))}
       </ul>

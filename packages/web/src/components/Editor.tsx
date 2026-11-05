@@ -29,6 +29,9 @@ export default function Editor({ initial, onChange }: Props) {
   const [photoSize, setPhotoSize] = useState<PhotoSize | null>(null)
   // Bumped by the Reframe button; TripMap refits to the visible stops when it changes.
   const [frameKey, setFrameKey] = useState(0)
+  // The stop whose row has focus; its marker is highlighted on the map. Dropped if the stop goes.
+  const [selectedName, setSelectedName] = useState<string | null>(null)
+  const selected = state.stops.some((s) => s.name === selectedName) ? selectedName : null
 
   const errors = useMemo(() => validateTrip(state), [state])
   const trip = useMemo(() => tripOf(state), [state])
@@ -53,6 +56,15 @@ export default function Editor({ initial, onChange }: Props) {
 
   return (
     <section className="editor" aria-label="Editor">
+      <StopList
+        stops={state.stops}
+        onAction={dispatch}
+        error={state.error}
+        focusName={focusName}
+        selected={selected}
+        onSelect={setSelectedName}
+      />
+
       <div className="editor-toolbar" role="toolbar" aria-label="Map tools">
         <button
           type="button"
@@ -76,8 +88,6 @@ export default function Editor({ initial, onChange }: Props) {
         )}
       </div>
 
-      <StopList stops={state.stops} onAction={dispatch} error={state.error} focusName={focusName} />
-
       <div className="editor-main">
         <TripMap
           trip={state}
@@ -86,6 +96,7 @@ export default function Editor({ initial, onChange }: Props) {
           onStopAdded={onStopAdded}
           onMapClick={onMapClick}
           frameKey={frameKey}
+          selected={selected}
         />
         <LegList
           trip={state}

@@ -27,6 +27,16 @@ const STAR_ICON = divIcon({
   tooltipAnchor: [0, -10],
 })
 
+// The selected stop's marker gets the same icon with a selected class: the CSS in TripMap.css
+// enlarges it and adds a glow, and the marker draws above the others (zIndexOffset).
+const selectedIcon = (kind: 'major' | 'minor') => {
+  const base = kind === 'major' ? PIN_ICON : STAR_ICON
+  const options = base.options
+  return divIcon({ ...options, className: `${options.className} trip-marker-selected` })
+}
+const SELECTED_PIN_ICON = selectedIcon('major')
+const SELECTED_STAR_ICON = selectedIcon('minor')
+
 const DASHED_MODES = new Set(['boat', 'flight'])
 
 // World view when the trip has no stops yet.
@@ -44,6 +54,8 @@ type Props = {
   onMapClick?: (at: LatLon) => void
   // Changing this value refits the map to the visible stops. Drags and edits don't refit.
   frameKey?: number
+  // The stop whose row has focus in the stop list; its marker is highlighted.
+  selected?: string | null
 }
 
 // Refits the map when frameKey changes (and once on mount). Stops are read from a ref,
@@ -75,7 +87,7 @@ function ClickHandler({ addMode, onAction, onStopAdded, onMapClick }: Omit<Props
   return null
 }
 
-function StopMarker({ stop, onAction }: { stop: Stop; onAction: Props['onAction'] }) {
+function StopMarker({ stop, onAction, selected }: { stop: Stop; onAction: Props['onAction']; selected: boolean }) {
   const handlers = useMemo(
     () => ({
       dragend(e: { target: { getLatLng(): { lat: number; lng: number } } }) {
@@ -88,7 +100,8 @@ function StopMarker({ stop, onAction }: { stop: Stop; onAction: Props['onAction'
   return (
     <Marker
       position={stop.at}
-      icon={stop.kind === 'major' ? PIN_ICON : STAR_ICON}
+      icon={stop.kind === 'major' ? (selected ? SELECTED_PIN_ICON : PIN_ICON) : selected ? SELECTED_STAR_ICON : STAR_ICON}
+      zIndexOffset={selected ? 1000 : 0}
       draggable
       eventHandlers={handlers}
       title={stop.name}
@@ -101,7 +114,7 @@ function StopMarker({ stop, onAction }: { stop: Stop; onAction: Props['onAction'
 
 // The editor's map. Lines are straight segments between a leg's resolved
 // via points; the road, rail and sea routes are drawn by the render step.
-export default function TripMap({ trip, onAction, addMode, onStopAdded, onMapClick, frameKey = 0 }: Props) {
+export default function TripMap({ trip, onAction, addMode, onStopAdded, onMapClick, frameKey = 0, selected = null }: Props) {
 
   const lines = trip.legs
     .map((leg, i) => ({
@@ -128,7 +141,7 @@ export default function TripMap({ trip, onAction, addMode, onStopAdded, onMapCli
         {trip.stops
           .filter((s) => s.kind !== 'hidden')
           .map((s) => (
-            <StopMarker key={s.name} stop={s} onAction={onAction} />
+            <StopMarker key={s.name} stop={s} onAction={onAction} selected={s.name === selected} />
           ))}
       </MapContainer>
       <p className="trip-map-note">

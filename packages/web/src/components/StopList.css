@@ -44,3 +44,9 @@
   color: var(--error);
   font-size: 0.85rem;
 }
+
+.stop-row-selected {
+  outline: 2px solid var(--accent, #1d3557);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
